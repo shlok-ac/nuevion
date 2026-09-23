@@ -1,0 +1,78 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
+import { AlertTriangle } from "lucide-react";
+import { cases, alerts, formatINR } from "@/lib/investigationData";
+import { cn } from "@/lib/utils";
+
+const priorityTone = {
+  critical: "bg-red-500/10 text-red-600 border-red-200",
+  high: "bg-amber-500/10 text-amber-600 border-amber-200",
+  medium: "bg-blue-500/10 text-blue-600 border-blue-200",
+};
+const statusTone = {
+  active: "bg-emerald-500/10 text-emerald-600",
+  frozen: "bg-blue-500/10 text-blue-600",
+  monitoring: "bg-amber-500/10 text-amber-600",
+  closed: "bg-muted text-muted-foreground",
+};
+
+export default function CaseQueue() {
+  const sortedCases = [...cases].sort((a, b) => b.amount - a.amount);
+  const sortedAlerts = [...alerts].sort((a, b) => new Date(b.time) - new Date(a.time));
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-sm">Active Cases · sorted by amount</CardTitle>
+          <Badge variant="secondary">{sortedCases.length}</Badge>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {sortedCases.map((c) => (
+            <Link key={c.id} to="/money-trail" state={{ caseId: c.muleChainId }} className="block">
+              <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium">{c.title}</span>
+                    <span className={cn("rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase", priorityTone[c.priority])}>
+                      {c.priority}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{c.id} · {c.fraudType}</p>
+                </div>
+                <div className="ml-3 text-right">
+                  <p className="text-sm font-semibold">{formatINR(c.amount)}</p>
+                  <span className={cn("mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium", statusTone[c.status])}>
+                    {c.status}
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <AlertTriangle className="h-4 w-4 text-red-500" /> Priority Alerts · sorted by time
+          </CardTitle>
+          <Badge variant="secondary">{sortedAlerts.length}</Badge>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {sortedAlerts.map((a) => (
+            <div key={a.id} className="flex items-start gap-3 rounded-lg border p-3">
+              <span className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", a.severity === "critical" ? "bg-red-500" : "bg-amber-500")} />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{a.message}</p>
+                <p className="text-xs text-muted-foreground">{a.caseId} · {a.time}</p>
+              </div>
+              <span className="text-sm font-semibold">{a.amount ? formatINR(a.amount) : "—"}</span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
