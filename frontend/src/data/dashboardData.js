@@ -108,3 +108,77 @@ export function scoreToLevel(score) {
   if (score >= 55) return 'Medium'
   return 'Low'
 }
+
+// Chart colors aligned with the CSS design tokens in styles/App.css.
+export const chartColors = {
+  navy: '#0f1f3d',
+  blue: '#2563eb',
+  red: '#dc2626',
+  orange: '#ea580c',
+  yellow: '#ca8a04',
+  green: '#16a34a',
+  muted: '#64748b',
+  border: '#e2e8f0',
+  grid: '#e2e8f0',
+}
+
+// Monthly fraud case counts (last 6 months). Totals stay in the same
+// range as the dashboard summary so the analytics feel consistent.
+export const fraudCasesTrend = [
+  { month: 'Apr 2026', cases: 18 },
+  { month: 'May 2026', cases: 22 },
+  { month: 'Jun 2026', cases: 19 },
+  { month: 'Jul 2026', cases: 27 },
+  { month: 'Aug 2026', cases: 31 },
+  { month: 'Sep 2026', cases: 24 },
+]
+
+// Monthly reported fraud amounts in rupees. Sep is the current month
+// and lines up with the ₹12,50,000 summary card as year-to-date context.
+export const fraudAmountTrend = [
+  { month: 'Apr 2026', amount: 165000 },
+  { month: 'May 2026', amount: 198000 },
+  { month: 'Jun 2026', amount: 142000 },
+  { month: 'Jul 2026', amount: 256000 },
+  { month: 'Aug 2026', amount: 314000 },
+  { month: 'Sep 2026', amount: 175000 },
+]
+
+// City-wise case and amount comparison. Cities match the heatmap set;
+// higher-risk cities report more cases and higher amounts.
+export const cityFraudComparison = [
+  { city: 'Mumbai', cases: 38, amount: 420000 },
+  { city: 'Pune', cases: 32, amount: 385000 },
+  { city: 'Nagpur', cases: 18, amount: 210000 },
+  { city: 'Nashik', cases: 12, amount: 135000 },
+  { city: 'Aurangabad', cases: 9, amount: 100000 },
+]
+
+// ATM risk-level distribution across the monitored fleet (not only the
+// 17 high-risk machines shown in the table).
+export const atmRiskDistribution = [
+  { level: 'Critical', count: 4, color: chartColors.red },
+  { level: 'High', count: 13, color: chartColors.orange },
+  { level: 'Medium', count: 21, color: chartColors.yellow },
+  { level: 'Low', count: 28, color: chartColors.green },
+]
+
+// Active-case priority mix. Counts match activeCasesBreakdown (24 total).
+export const casePriorityDistribution = [
+  { priority: 'Critical', count: 6, color: chartColors.red },
+  { priority: 'High', count: 9, color: chartColors.orange },
+  { priority: 'Medium', count: 9, color: chartColors.yellow },
+]
+
+export function formatRupees(value) {
+  return `₹${Number(value).toLocaleString('en-IN')}`
+}
+
+export function formatCompactRupees(value) {
+  if (value >= 100000) {
+    const lakhs = value / 100000
+    return `₹${lakhs % 1 === 0 ? lakhs.toFixed(0) : lakhs.toFixed(1)}L`
+  }
+  if (value >= 1000) return `₹${Math.round(value / 1000)}K`
+  return formatRupees(value)
+}

@@ -5,6 +5,11 @@ import HighRiskATMs from '../../components/dashboard/HighRiskATMs'
 import CityHeatmap from '../../components/dashboard/CityHeatmap'
 import ATMRiskOverview from '../../components/dashboard/ATMRiskOverview'
 import RecentCases from '../../components/dashboard/RecentCases'
+import FraudCasesTrend from '../../components/dashboard/FraudCasesTrend'
+import FraudAmountTrend from '../../components/dashboard/FraudAmountTrend'
+import CityFraudComparison from '../../components/dashboard/CityFraudComparison'
+import ATMRiskDistribution from '../../components/dashboard/ATMRiskDistribution'
+import CasePriorityDistribution from '../../components/dashboard/CasePriorityDistribution'
 import { summaryStats } from '../../data/dashboardData'
 
 // Dashboard page. The existing dashboard UI is preserved here so it can
@@ -34,6 +39,24 @@ export default function App() {
           <section className="two-col-grid">
             <ATMRiskOverview />
             <RecentCases />
+          </section>
+
+          <section className="analytics-section">
+            <h2 className="analytics-section__title">Analytics</h2>
+
+            <div className="two-col-grid">
+              <FraudCasesTrend />
+              <FraudAmountTrend />
+            </div>
+
+            <section>
+              <CityFraudComparison />
+            </section>
+
+            <div className="two-col-grid">
+              <ATMRiskDistribution />
+              <CasePriorityDistribution />
+            </div>
           </section>
     </main>
   )

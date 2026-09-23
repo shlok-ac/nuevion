@@ -571,6 +571,26 @@ body {
   background: var(--color-green);
 }
 
+/* ---------------- Analytics ---------------- */
+
+.analytics-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.analytics-section__title {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-navy);
+}
+
+.chart-container {
+  width: 100%;
+  height: 280px;
+}
+
 /* ---------------- Responsive breakpoints ---------------- */
 
 /* Tablet */
@@ -620,5 +640,8 @@ body {
   }
   .header__date {
     display: none;
+  }
+  .chart-container {
+    height: 240px;
   }
 }
