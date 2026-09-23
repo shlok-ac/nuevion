@@ -1,5 +1,5 @@
 import React from 'react'
-import { cityRisk, scoreToLevel } from '../data/dashboardData'
+import { cityRisk, scoreToLevel } from '../../data/dashboardData'
 
 // Version 1 uses a colored grid instead of a real geographic map.
 // Each tile is colored by risk level. This component is kept separate

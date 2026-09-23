@@ -1,5 +1,5 @@
 import React from 'react'
-import { highRiskATMs } from '../data/dashboardData'
+import { highRiskATMs } from '../../data/dashboardData'
 
 // Turns a risk level string like "Critical" into the matching CSS class suffix.
 function levelToClass(level) {

@@ -1,5 +1,5 @@
 import React from 'react'
-import { recentCases } from '../data/dashboardData'
+import { recentCases } from '../../data/dashboardData'
 
 export default function RecentCases() {
   return (

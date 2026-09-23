@@ -1,5 +1,5 @@
 import React from 'react'
-import { activeCasesBreakdown } from '../data/dashboardData'
+import { activeCasesBreakdown } from '../../data/dashboardData'
 
 // Shows the total active cases plus a breakdown by priority,
 // with a simple stacked progress bar for a quick visual read.

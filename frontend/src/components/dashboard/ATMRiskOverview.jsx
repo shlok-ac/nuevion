@@ -1,5 +1,5 @@
 import React from 'react'
-import { highRiskATMs } from '../data/dashboardData'
+import { highRiskATMs } from '../../data/dashboardData'
 
 // Shows the same ATM risk data as HighRiskATMs, but as horizontal bars
 // for a quicker "at a glance" comparison instead of a table.
