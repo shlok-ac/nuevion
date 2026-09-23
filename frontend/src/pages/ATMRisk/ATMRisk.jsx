@@ -1,0 +1,14 @@
+import React, { useMemo, useState } from 'react'
+import { atmRiskData } from '../../data/dashboardData'
+import { Badge, DetailPanel, FilterBar, Page } from '../../components/shared/UI'
+export default function ATMRisk() {
+ const [city,setCity]=useState('All'),[level,setLevel]=useState('All'),[selected,setSelected]=useState(null)
+ const list=useMemo(()=>atmRiskData.filter(a=>(city==='All'||a.city===city)&&(level==='All'||a.level===level)),[city,level])
+ const rollup=Object.values(atmRiskData.reduce((o,a)=>{o[a.city]??={city:a.city,score:0,cases:0};o[a.city].score+=a.aviScore;o[a.city].cases+=a.fraudDensity;return o},{})).sort((a,b)=>b.cases-a.cases)
+ return <Page title="ATM Vulnerability Index" subtitle="Six-factor risk assessment and historical cash-out patterns">
+  <FilterBar><select value={city} onChange={e=>setCity(e.target.value)}>{['All',...new Set(atmRiskData.map(a=>a.city))].map(x=><option key={x}>{x}</option>)}</select><select value={level} onChange={e=>setLevel(e.target.value)}>{['All','Critical','High','Medium','Low'].map(x=><option key={x}>{x}</option>)}</select></FilterBar>
+  <div className="card table-wrap"><table><thead><tr><th>ATM / location</th><th>Location type</th><th>Lighting</th><th>CCTV</th><th>AVI score</th><th>Fraud density</th><th>Characteristics</th><th>Risk</th></tr></thead><tbody>{list.map(a=><tr key={a.id} onClick={()=>setSelected(a)}><td><strong>{a.id}</strong><br/><small>{a.city} · {a.location}</small></td><td>{a.locationType}</td><td>{a.lighting}</td><td>{a.cctv}</td><td><div className="score-bar"><i style={{width:`${a.aviScore}%`}}/></div>{a.aviScore}</td><td>{a.fraudDensity} cases</td><td>{a.characteristics}</td><td><Badge value={a.level}/></td></tr>)}</tbody></table></div>
+  <section className="card"><h3>City cash-out pattern ranking</h3><div className="rollup-list">{rollup.map((r,i)=><div className="rollup" key={r.city}><b>#{i+1} {r.city}</b><span>{r.cases} historical cases</span><div className="score-bar"><i style={{width:`${Math.min(100,r.cases*7)}%`}}/></div></div>)}</div></section>
+  {selected&&<DetailPanel title={`${selected.id} · ATM detail`} onClose={()=>setSelected(null)}><p><b>{selected.city} · {selected.location}</b><br/>Map pin placeholder — precise map integration pending.</p><h4>Factor breakdown</h4>{[['Location type',selected.locationType],['Low lighting',selected.lighting],['CCTV coverage',selected.cctv],['AVI score',`${selected.aviScore}/100`],['Historical fraud density',`${selected.fraudDensity} cases`],['ATM characteristics',selected.characteristics]].map(([n,v])=><div className="factor" key={n}><span>{n}</span><b>{v}</b></div>)}<h4>Fraud case history</h4>{selected.cases.length?selected.cases.map(x=><p key={x} className="linked">{x} · linked investigation</p>):<p>No linked cases.</p>}</DetailPanel>}
+ </Page>
+}
