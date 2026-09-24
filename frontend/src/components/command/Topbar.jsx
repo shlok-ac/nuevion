@@ -18,6 +18,7 @@ const titles = {
   "/money-trail": "Interactive Money Trail",
   "/legal": "Legal Window — §106 BNSS Freeze Notice",
   "/freeze-sim": "Silent Bank Freeze Simulation",
+  "/analytics": "Analytics",
   "/suspects": "Suspect Database",
   "/export": "Export",
 };
