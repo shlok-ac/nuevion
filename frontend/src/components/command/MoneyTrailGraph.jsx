@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import CaseSelector from "@/components/command/CaseSelector";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -121,18 +122,7 @@ export default function MoneyTrailGraph({ initialCaseId }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={caseId} onValueChange={onCaseChange}>
-          <SelectTrigger className="w-64">
-            <SelectValue placeholder="Select case" />
-          </SelectTrigger>
-          <SelectContent>
-            {cases.map((c) =>
-            <SelectItem key={c.muleChainId} value={c.muleChainId}>
-                {c.id} — {c.title}
-              </SelectItem>
-            )}
-          </SelectContent>
-        </Select>
+        <CaseSelector cases={cases} value={caseId} onValueChange={onCaseChange} valueKey="muleChainId" className="w-64" />
         <Select value={layerFilter} onValueChange={setLayerFilter}>
           <SelectTrigger className="w-44">
             <SelectValue />
@@ -154,7 +144,7 @@ export default function MoneyTrailGraph({ initialCaseId }) {
       <div
         className="relative w-full cursor-grab overflow-hidden rounded-lg border active:cursor-grabbing"
         style={{
-          height: "70vh",
+          height: "80vh",
           backgroundImage: "radial-gradient(circle, #e2e8f0 1.5px, transparent 1.5px)",
           backgroundSize: "22px 22px"
         }}

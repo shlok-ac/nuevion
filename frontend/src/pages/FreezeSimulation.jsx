@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import CaseSelector from "@/components/command/CaseSelector";
 import BankAppSim from "@/components/command/BankAppSim";
 import AtmSim from "@/components/command/AtmSim";
 import { cases } from "@/lib/investigationData";
@@ -79,18 +79,7 @@ export default function FreezeSimulation() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={caseId} onValueChange={onCaseChange}>
-          <SelectTrigger className="w-72">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {cases.map((x) => (
-              <SelectItem key={x.id} value={x.id}>
-                {x.id} — {x.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <CaseSelector cases={cases} value={caseId} onValueChange={onCaseChange} className="w-72" />
         <div className="flex items-center gap-1 rounded-lg border p-1">
           {modes.map((m) => (
             <button

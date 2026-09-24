@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import CaseSelector from "@/components/command/CaseSelector";
 import { Printer, Download, FileText } from "lucide-react";
 import FreezeNoticeDoc from "@/components/command/FreezeNoticeDoc";
 import { cases } from "@/lib/investigationData";
@@ -86,18 +86,7 @@ export default function LegalWindow() {
           <CardContent className="space-y-3">
             <div className="space-y-1.5">
               <Label>Case</Label>
-              <Select value={caseId} onValueChange={onCaseChange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {cases.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.id} — {c.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CaseSelector cases={cases} value={caseId} onValueChange={onCaseChange} />
             </div>
             <Field label="Nodal officer" value={form.officerName} onChange={set("officerName")} />
             <Field label="Bank" value={form.bank} onChange={set("bank")} />

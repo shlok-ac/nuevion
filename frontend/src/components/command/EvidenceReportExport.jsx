@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Printer, Download, FileText } from "lucide-react";
 import { cases, evidenceByCase, formatINR } from "@/lib/investigationData";
+import CaseSelector from "@/components/command/CaseSelector";
 
 export default function EvidenceReportExport() {
   const [caseId, setCaseId] = useState(cases[0].id);
@@ -28,18 +28,7 @@ export default function EvidenceReportExport() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={caseId} onValueChange={setCaseId}>
-          <SelectTrigger className="w-72">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {cases.map((x) => (
-              <SelectItem key={x.id} value={x.id}>
-                {x.id} — {x.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <CaseSelector cases={cases} value={caseId} onValueChange={setCaseId} className="w-72" />
         <Button onClick={() => window.print()}>
           <Printer className="h-4 w-4" /> Print report
         </Button>
