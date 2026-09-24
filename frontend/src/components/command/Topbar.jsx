@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 
 const titles = {
   "/": "Command Dashboard",
+  "/atm-intelligence": "ATM Intelligence",
   "/money-trail": "Interactive Money Trail",
   "/legal": "Legal Window — §106 BNSS Freeze Notice",
   "/freeze-sim": "Silent Bank Freeze Simulation",
