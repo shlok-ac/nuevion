@@ -144,7 +144,7 @@ export default function MoneyTrailGraph({ initialCaseId }) {
       <div
         className="relative w-full cursor-grab overflow-hidden rounded-lg border active:cursor-grabbing"
         style={{
-          height: "70vh",
+          height: "80vh",
           backgroundImage: "radial-gradient(circle, #e2e8f0 1.5px, transparent 1.5px)",
           backgroundSize: "22px 22px"
         }}
