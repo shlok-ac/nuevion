@@ -4,9 +4,11 @@ import {
   ChevronLeft,
   ChevronRight,
   LayoutDashboard,
+  Banknote,
   Share2,
   Scale,
   Snowflake,
+  ChartNoAxesCombined,
   Users,
   Download,
 } from "lucide-react";
@@ -17,9 +19,11 @@ const EMBLEM_URL = "/emblem.png";
 
 const nav = [
   { to: "/", label: "Command Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/atm-intelligence", label: "ATM Intelligence", icon: Banknote },
   { to: "/money-trail", label: "Money Trail", icon: Share2 },
   { to: "/legal", label: "Legal Window", icon: Scale },
   { to: "/freeze-sim", label: "Freeze Simulation", icon: Snowflake },
+  { to: "/analytics", label: "Analytics", icon: ChartNoAxesCombined },
   { to: "/suspects", label: "Suspect Database", icon: Users },
   { to: "/export", label: "Export", icon: Download },
 ];

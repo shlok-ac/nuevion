@@ -10,6 +10,8 @@ import LegalWindow from "@/pages/LegalWindow";
 import FreezeSimulation from "@/pages/FreezeSimulation";
 import SuspectDatabase from "@/pages/SuspectDatabase";
 import Export from "@/pages/Export";
+import Analytics from "@/pages/Analytics";
+import ATMIntelligence from "@/pages/ATMIntelligence";
 
 function App() {
   return (
@@ -19,9 +21,11 @@ function App() {
       <Routes>
         <Route element={<CommandLayout />}>
           <Route path="/" element={<CommandDashboard />} />
+          <Route path="/atm-intelligence" element={<ATMIntelligence />} />
           <Route path="/money-trail" element={<MoneyTrail />} />
           <Route path="/legal" element={<LegalWindow />} />
           <Route path="/freeze-sim" element={<FreezeSimulation />} />
+          <Route path="/analytics" element={<Analytics />} />
           <Route path="/suspects" element={<SuspectDatabase />} />
           <Route path="/export" element={<Export />} />
         </Route>
