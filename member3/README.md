@@ -1,4 +1,4 @@
-# SentinCash – ATM Risk Prediction & Money Trail Intelligence
+# NirikshanAi– ATM Risk Prediction & Money Trail Intelligence
 
 ## Overview
 
