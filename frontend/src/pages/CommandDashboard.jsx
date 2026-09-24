@@ -11,6 +11,24 @@ export default function CommandDashboard() {
 
   return (
     <div className="space-y-6 p-6">
+      <Card>
+        <CardContent className="p-4 text-xs">
+          <p className="flex items-center gap-2 font-medium text-emerald-600">
+            <span aria-hidden="true">●</span>
+            Data systems operational
+          </p>
+          <p className="mt-2 text-muted-foreground">Last sync: 22:34:12</p>
+          <div className="mt-3 grid gap-2 text-foreground sm:grid-cols-2 xl:grid-cols-4">
+            {["NCRP", "Bank feeds", "Transaction engine", "ML model"].map((system) => (
+              <div key={system} className="flex min-h-8 items-center justify-between rounded-md border bg-background px-3 py-1.5">
+                <span>{system}</span>
+                <span className="flex h-5 w-5 items-center justify-center text-emerald-600" aria-label="operational">✓</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={Wallet} label="Total amount at risk" value={formatINR(totalAtRisk)} sub={`${cases.length} active cases`} tone="red" />
         <StatCard icon={AlertTriangle} label="Priority alerts (24h)" value={alerts.length} sub="2 critical" tone="amber" />

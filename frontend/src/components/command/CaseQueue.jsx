@@ -73,6 +73,12 @@ export default function CaseQueue() {
           ))}
         </CardContent>
       </Card>
+
+      <Card className="lg:col-span-2">
+        <CardContent className="flex min-h-40 items-center justify-center p-6">
+          <p className="text-sm text-muted-foreground">map with drill down filters</p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
