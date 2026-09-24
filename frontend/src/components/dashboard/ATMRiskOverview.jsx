@@ -1,30 +1,36 @@
 import React from 'react'
 import { highRiskATMs } from '../../data/dashboardData'
 
-// Shows the same ATM risk data as HighRiskATMs, but as horizontal bars
-// for a quicker "at a glance" comparison instead of a table.
 export default function ATMRiskOverview() {
+  const ranked = [...highRiskATMs].sort((a, b) => b.riskScore - a.riskScore)
+
   return (
     <div className="card">
       <div className="card__header">
-        <h2 className="card__title">ATM Risk Overview</h2>
+        <div>
+          <h2 className="card__title">Top ATM Risk Ranking</h2>
+          <p className="card__subtitle">Highest-risk ATMs based on current risk score</p>
+        </div>
       </div>
-
-      <div className="risk-bars">
-        {highRiskATMs.map((atm) => (
-          <div className="risk-bar" key={atm.id}>
-            <div className="risk-bar__label">
-              <span>{atm.location}</span>
-              <span>{atm.riskScore}%</span>
-            </div>
-            <div className="risk-bar__track">
-              <div
-                className={`risk-bar__fill risk-bar__fill--${atm.level.toLowerCase()}`}
-                style={{ width: `${atm.riskScore}%` }}
-              />
-            </div>
-          </div>
-        ))}
+      <div className="table-wrapper">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Rank</th><th>ATM</th><th>Location</th><th>Risk Score</th><th>Risk Level</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranked.map((atm, index) => (
+              <tr key={atm.id}>
+                <td><strong>#{index + 1}</strong></td>
+                <td className="data-table__mono">{atm.id}</td>
+                <td>{atm.location}</td>
+                <td><strong>{atm.riskScore}</strong></td>
+                <td><span className={`badge badge--${atm.level.toLowerCase()}`}>{atm.level}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )

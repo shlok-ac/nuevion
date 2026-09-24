@@ -8,36 +8,7 @@
 // -----------------------------------------------------------------------
 
 // Top summary cards shown at the top of the dashboard
-export const summaryStats = [
-  {
-    id: 'active-cases',
-    label: 'Active Cases',
-    value: '24',
-    subtitle: 'Cases under investigation',
-    tone: 'blue',
-  },
-  {
-    id: 'high-risk-atms',
-    label: 'High Risk ATMs',
-    value: '17',
-    subtitle: 'Require attention',
-    tone: 'orange',
-  },
-  {
-    id: 'fraud-amount',
-    label: 'Total Fraud Amount',
-    value: '₹12,50,000',
-    subtitle: 'Reported amount',
-    tone: 'red',
-  },
-  {
-    id: 'critical-alerts',
-    label: 'Critical Alerts',
-    value: '6',
-    subtitle: 'Immediate attention',
-    tone: 'red',
-  },
-]
+export const summaryStats = []
 
 // Breakdown of active cases by priority, used in the ActiveCases card
 export const activeCasesBreakdown = {

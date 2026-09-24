@@ -4,7 +4,7 @@ import React from 'react'
 // Kept as a simple array so adding/removing a menu item later is easy.
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: '▦' },
-  { id: 'active-cases', label: 'Active Cases', icon: '🗂' },
+  { id: 'case-investigation', label: 'Case Investigation', icon: '📍' },
   { id: 'atm-risk', label: 'ATM Risk', icon: '🏧' },
   { id: 'money-trail', label: 'Money Trail', icon: '💸' },
   { id: 'alerts', label: 'Alerts', icon: '🔔' },
