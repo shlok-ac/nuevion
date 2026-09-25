@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, MapPinned, Maximize2, Minimize2 } from "lucide-react";
 
 const HEAT_GRADIENT = {
   0.0: "#1234a6",
@@ -41,6 +41,7 @@ export default function FraudHeatmap() {
   const [toTime, setToTime] = useState("23:59");
   const [error, setError] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mapRevision, setMapRevision] = useState(0);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -51,42 +52,105 @@ export default function FraudHeatmap() {
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  useEffect(() => {
-    const resizeMap = () => mapInstance.current?.invalidateSize({ animate: false });
-    const frame = window.requestAnimationFrame(resizeMap);
-    const timers = [100, 300].map((delay) => window.setTimeout(resizeMap, delay));
+  useLayoutEffect(() => {
+    let disposed = false;
+    let frame = 0;
+    let resizeFrame = 0;
+    let timer = 0;
+    let retryCount = 0;
+    let createdMap = null;
+
+    const removeMap = () => {
+      if (heatRef.current) {
+        heatRef.current.remove();
+        heatRef.current = null;
+      }
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
+
+      const map = createdMap || mapInstance.current;
+      if (map) {
+        map.remove();
+        if (mapInstance.current === map) mapInstance.current = null;
+      }
+      createdMap = null;
+    };
+
+    const initializeMap = () => {
+      if (disposed) return;
+      const L = window.L;
+      const container = mapRef.current;
+      if (!L || !container) return;
+      if (createdMap) {
+        createdMap.invalidateSize({ animate: false, pan: false });
+        return;
+      }
+
+      const { width, height } = container.getBoundingClientRect();
+      if (width === 0 || height === 0) {
+        if (retryCount < 60) {
+          retryCount += 1;
+          frame = window.requestAnimationFrame(initializeMap);
+        }
+        return;
+      }
+
+      removeMap();
+      createdMap = L.map(container, {
+        scrollWheelZoom: true,
+        maxBounds: [[6, 67], [37.5, 98]],
+        maxBoundsViscosity: 0.85,
+      }).setView([22.7, 79.2], 5);
+
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+        maxZoom: 19,
+      }).addTo(createdMap);
+      mapInstance.current = createdMap;
+      setMapRevision((revision) => revision + 1);
+
+      resizeFrame = window.requestAnimationFrame(() => {
+        if (!disposed && mapInstance.current === createdMap) {
+          createdMap.invalidateSize({ animate: false, pan: false });
+        }
+      });
+    };
+
+    const handleLoad = () => initializeMap();
+    if (!window.L) window.addEventListener("load", handleLoad);
+    frame = window.requestAnimationFrame(initializeMap);
+    timer = window.setTimeout(initializeMap, 250);
+
     return () => {
+      disposed = true;
+      window.removeEventListener("load", handleLoad);
       window.cancelAnimationFrame(frame);
-      timers.forEach((timer) => window.clearTimeout(timer));
+      window.cancelAnimationFrame(resizeFrame);
+      window.clearTimeout(timer);
+      removeMap();
     };
   }, [isFullscreen]);
 
   useEffect(() => {
-    if (!mapRef.current || !window.ResizeObserver) return undefined;
-    const observer = new ResizeObserver(() => mapInstance.current?.invalidateSize({ animate: false }));
-    observer.observe(mapRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!window.L || !mapRef.current || mapInstance.current) return undefined;
-    const map = window.L.map(mapRef.current, {
-      scrollWheelZoom: true,
-      maxBounds: [[6, 67], [37.5, 98]],
-      maxBoundsViscosity: 0.85,
-    }).setView([22.7, 79.2], 5);
-
-    window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors",
-      maxZoom: 19,
-    }).addTo(map);
-
-    mapInstance.current = map;
+    const container = mapRef.current;
+    if (!container || !window.ResizeObserver) return undefined;
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const map = mapInstance.current;
+        if (map && container.clientWidth > 0 && container.clientHeight > 0) {
+          map.invalidateSize({ animate: false, pan: false });
+        }
+      });
+    });
+    observer.observe(container);
+    if (container.parentElement) observer.observe(container.parentElement);
     return () => {
-      map.remove();
-      mapInstance.current = null;
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
     };
-  }, []);
+  }, [isFullscreen, mapRevision]);
 
   useEffect(() => {
     Promise.all([
@@ -204,7 +268,7 @@ export default function FraudHeatmap() {
         { maxZoom: 10, animate: false },
       );
     }
-  }, [filtered]);
+  }, [filtered, mapRevision]);
 
   const reset = () => {
     setCity("ALL");
@@ -232,51 +296,60 @@ export default function FraudHeatmap() {
   return (
     <div
       ref={cardRef}
-      className={`relative overflow-hidden border bg-card text-card-foreground shadow-sm ${
+      className={`relative overflow-hidden border bg-card text-card-foreground shadow ${
         isFullscreen
           ? "fixed inset-0 z-50 flex h-screen w-screen flex-col rounded-none"
           : "rounded-lg"
       }`}
     >
-      <div className="flex shrink-0 flex-col gap-3 border-b p-4 pr-14 xl:flex-row xl:items-start xl:justify-between">
-        <div>
-          <h2 className="text-base font-semibold">Fraud Heatmap</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Historical ATM/cyber-fraud activity — filter by time, location and fraud type
-          </p>
+      <div className="flex shrink-0 flex-col gap-3 border-b p-4 pr-14 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex xl:flex-1 xl:-translate-x-4 xl:items-center xl:justify-center">
+          <h2 className="inline-flex min-h-12 w-70 items-center gap-2 whitespace-nowrap px-6 py-3 text-base font-semibold text-primary">
+            <MapPinned aria-hidden="true" className="h-6 w-6 shrink-0" />
+            Fraud Heatmap
+          </h2>
         </div>
         <button
           type="button"
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           onClick={toggleFullscreen}
           aria-label={isFullscreen ? "Exit fullscreen" : "View heatmap fullscreen"}
           title={isFullscreen ? "Exit fullscreen" : "View fullscreen"}
         >
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
-        <div className="grid w-full gap-3 sm:grid-cols-2 xl:max-w-4xl xl:grid-cols-4">
-          <select className="h-9 rounded-md border bg-background px-2 text-xs" value={city} onChange={(event) => setCity(event.target.value)}>
-            <option value="ALL">All cities</option>
-            {cities.map((value) => <option key={value}>{value}</option>)}
-          </select>
-          <select className="h-9 rounded-md border bg-background px-2 text-xs" value={crimeType} onChange={(event) => setCrimeType(event.target.value)}>
-            <option value="ALL">All crime types</option>
-            {crimes.map((value) => <option key={value}>{value}</option>)}
-          </select>
-          <select className="h-9 rounded-md border bg-background px-2 text-xs" value={risk} onChange={(event) => setRisk(event.target.value)}>
-            <option value="ALL">All risk levels</option>
-            {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((value) => <option key={value}>{value}</option>)}
-          </select>
-          <button type="button" className="h-9 rounded-md bg-destructive px-3 text-xs font-medium text-destructive-foreground" onClick={reset}>Reset</button>
-          <div className="flex items-center gap-2 px-0 py-1.5 sm:col-span-2 xl:col-span-2">
-            <span className="shrink-0 text-xs font-semibold text-foreground">From</span>
-            <input className="h-8 w-44 shrink-0 rounded-md border bg-background px-2 text-xs" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" />
-            <input className="h-8 w-32 shrink-0 rounded-md border bg-background px-2 text-xs" type="time" value={fromTime} onChange={(event) => setFromTime(event.target.value)} aria-label="From time" />
+        <div className="grid w-full gap-2 sm:grid-cols-2 xl:max-w-4xl xl:grid-cols-4">
+          <div className="relative">
+            <select className="h-9 w-full appearance-none rounded-md border bg-background pl-2 pr-10 text-xs" value={city} onChange={(event) => setCity(event.target.value)}>
+              <option value="ALL">All cities</option>
+              {cities.map((value) => <option key={value}>{value}</option>)}
+            </select>
+            <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
-          <div className="flex items-center gap-2 px-0 py-1.5 sm:col-span-2 xl:col-span-2">
-            <span className="shrink-0 text-xs font-semibold text-foreground">To</span>
-            <input className="h-8 w-44 shrink-0 rounded-md border bg-background px-2 text-xs" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="To date" />
-            <input className="h-8 w-32 shrink-0 rounded-md border bg-background px-2 text-xs" type="time" value={toTime} onChange={(event) => setToTime(event.target.value)} aria-label="To time" />
+          <div className="relative">
+            <select className="h-9 w-full appearance-none rounded-md border bg-background pl-2 pr-10 text-xs" value={crimeType} onChange={(event) => setCrimeType(event.target.value)}>
+              <option value="ALL">All crime types</option>
+              {crimes.map((value) => <option key={value}>{value}</option>)}
+            </select>
+            <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          </div>
+          <div className="relative">
+            <select className="h-9 w-full appearance-none rounded-md border bg-background pl-2 pr-10 text-xs" value={risk} onChange={(event) => setRisk(event.target.value)}>
+              <option value="ALL">All risk levels</option>
+              {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((value) => <option key={value}>{value}</option>)}
+            </select>
+            <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          </div>
+          <button type="button" className="h-9 rounded-md bg-destructive px-3 text-xs font-medium text-destructive-foreground xl:w-[calc(100%_-_0.25rem)]" onClick={reset}>Reset</button>
+          <div className="flex h-9 items-center gap-2 sm:col-span-2 xl:col-span-2">
+            <span className="inline-flex h-9 min-w-12 shrink-0 items-center justify-center rounded-md border bg-muted px-3 text-xs font-semibold text-muted-foreground">From</span>
+            <input className="h-9 w-44 shrink-0 rounded-md border bg-background px-2 text-xs" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" />
+            <input className="h-9 w-32 shrink-0 rounded-md border bg-background px-2 text-xs" type="time" value={fromTime} onChange={(event) => setFromTime(event.target.value)} aria-label="From time" />
+          </div>
+          <div className="flex h-9 items-center gap-2 sm:col-span-2 xl:col-span-2">
+            <span className="inline-flex h-9 min-w-12 shrink-0 items-center justify-center rounded-md border bg-muted px-3 text-xs font-semibold text-muted-foreground">To</span>
+            <input className="h-9 w-44 shrink-0 rounded-md border bg-background px-2 text-xs" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="To date" />
+            <input className="h-9 w-32 shrink-0 rounded-md border bg-background px-2 text-xs" type="time" value={toTime} onChange={(event) => setToTime(event.target.value)} aria-label="To time" />
           </div>
         </div>
       </div>
@@ -285,21 +358,14 @@ export default function FraudHeatmap() {
         <div className="flex min-h-96 items-center justify-center p-6 text-sm text-destructive">{error}</div>
       ) : (
         <div className={`grid min-h-0 lg:grid-cols-[minmax(0,1fr)_20rem] ${isFullscreen ? "flex-1 grid-rows-[minmax(0,1fr)]" : ""}`}>
-          <div className={`m-3 min-h-0 overflow-hidden rounded-md border bg-muted ${isFullscreen ? "h-full" : ""}`}>
+          <div className={`m-3 min-h-0 overflow-hidden rounded-md border bg-muted ${isFullscreen ? "h-full min-h-[20rem]" : ""}`}>
             <div
               ref={mapRef}
-              className={`${isFullscreen ? "min-h-0 h-full" : "h-[20rem] lg:h-[27rem]"} [&_.leaflet-container]:h-full`}
+              className={`${isFullscreen ? "h-full min-h-[20rem]" : "h-[20rem] lg:h-[27rem]"} [&_.leaflet-container]:h-full`}
             />
           </div>
-          <aside className={`overflow-auto border-t lg:border-l lg:border-t-0 ${isFullscreen ? "max-h-none" : "max-h-[27.5rem]"}`}>
-            <div className="border-b bg-muted/50 p-5">
-              <span className="text-[11px] font-bold tracking-wider text-muted-foreground">CASES MATCHING FILTER</span>
-              <strong className="my-2 block text-5xl leading-none">{filtered.length}</strong>
-              <span className="text-xs text-muted-foreground">
-                {[city !== "ALL" ? city : "All cities", crimeType !== "ALL" ? crimeType : "All crimes", risk !== "ALL" ? risk : "All risk levels"].join(" · ")}
-              </span>
-            </div>
-            <div className="flex items-center justify-between p-4">
+          <aside className={`overflow-auto border-t [scrollbar-width:none] lg:border-l lg:border-t-0 [&::-webkit-scrollbar]:hidden ${isFullscreen ? "max-h-none" : "max-h-[27.5rem]"}`}>
+            <div className="m-3 flex items-center justify-between rounded-lg border bg-background p-4 shadow-sm">
               <div><h3 className="text-sm font-semibold">ATM Ranking</h3><p className="text-[11px] text-muted-foreground">Highest risk first</p></div>
               <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-primary/10 px-2 text-xs font-bold text-primary">{rankedAtms.length}</span>
             </div>

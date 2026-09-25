@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, CreditCard, CheckCircle2, XCircle, Banknote } from "lucide-react";
+import { Loader2, CreditCard, XCircle, Banknote } from "lucide-react";
 
 const STEPS = ["Insert card", "Enter PIN", "Select account", "Enter amount", "Processing"];
 const PROCESS_MSGS = [

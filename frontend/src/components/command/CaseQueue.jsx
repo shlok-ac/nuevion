@@ -23,7 +23,7 @@ export default function CaseQueue() {
   const sortedAlerts = [...alerts].sort((a, b) => new Date(b.time) - new Date(a.time));
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-x-4 gap-y-6 lg:grid-cols-2">
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="text-sm">Active Cases · sorted by amount</CardTitle>
