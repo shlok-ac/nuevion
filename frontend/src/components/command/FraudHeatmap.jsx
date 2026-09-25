@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { ChevronDown, MapPinned, Maximize2, Minimize2 } from "lucide-react";
 
 const HEAT_GRADIENT = {
   0.0: "#1234a6",
@@ -238,45 +238,54 @@ export default function FraudHeatmap() {
           : "rounded-lg"
       }`}
     >
-      <div className="flex shrink-0 flex-col gap-3 border-b p-4 pr-14 xl:flex-row xl:items-start xl:justify-between">
-        <div>
-          <h2 className="text-base font-semibold">Fraud Heatmap</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Historical ATM/cyber-fraud activity — filter by time, location and fraud type
-          </p>
+      <div className="flex shrink-0 flex-col gap-3 border-b p-4 pr-14 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex xl:flex-1 xl:-translate-x-4 xl:items-center xl:justify-center">
+          <h2 className="inline-flex min-h-12 w-70 items-center gap-2 whitespace-nowrap rounded-xl border border-border/60 bg-background px-6 py-3 text-base font-semibold text-primary shadow-sm">
+            <MapPinned aria-hidden="true" className="h-6 w-6 shrink-0" />
+            Fraud Heatmap
+          </h2>
         </div>
         <button
           type="button"
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           onClick={toggleFullscreen}
           aria-label={isFullscreen ? "Exit fullscreen" : "View heatmap fullscreen"}
           title={isFullscreen ? "Exit fullscreen" : "View fullscreen"}
         >
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
-        <div className="grid w-full gap-3 sm:grid-cols-2 xl:max-w-4xl xl:grid-cols-4">
-          <select className="h-9 rounded-md border bg-background px-2 text-xs" value={city} onChange={(event) => setCity(event.target.value)}>
-            <option value="ALL">All cities</option>
-            {cities.map((value) => <option key={value}>{value}</option>)}
-          </select>
-          <select className="h-9 rounded-md border bg-background px-2 text-xs" value={crimeType} onChange={(event) => setCrimeType(event.target.value)}>
-            <option value="ALL">All crime types</option>
-            {crimes.map((value) => <option key={value}>{value}</option>)}
-          </select>
-          <select className="h-9 rounded-md border bg-background px-2 text-xs" value={risk} onChange={(event) => setRisk(event.target.value)}>
-            <option value="ALL">All risk levels</option>
-            {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((value) => <option key={value}>{value}</option>)}
-          </select>
-          <button type="button" className="h-9 rounded-md bg-destructive px-3 text-xs font-medium text-destructive-foreground" onClick={reset}>Reset</button>
-          <div className="flex items-center gap-2 px-0 py-1.5 sm:col-span-2 xl:col-span-2">
-            <span className="shrink-0 text-xs font-semibold text-foreground">From</span>
-            <input className="h-8 w-44 shrink-0 rounded-md border bg-background px-2 text-xs" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" />
-            <input className="h-8 w-32 shrink-0 rounded-md border bg-background px-2 text-xs" type="time" value={fromTime} onChange={(event) => setFromTime(event.target.value)} aria-label="From time" />
+        <div className="grid w-full gap-2 sm:grid-cols-2 xl:max-w-4xl xl:grid-cols-4">
+          <div className="relative">
+            <select className="h-9 w-full appearance-none rounded-md border bg-background pl-2 pr-10 text-xs" value={city} onChange={(event) => setCity(event.target.value)}>
+              <option value="ALL">All cities</option>
+              {cities.map((value) => <option key={value}>{value}</option>)}
+            </select>
+            <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
-          <div className="flex items-center gap-2 px-0 py-1.5 sm:col-span-2 xl:col-span-2">
-            <span className="shrink-0 text-xs font-semibold text-foreground">To</span>
-            <input className="h-8 w-44 shrink-0 rounded-md border bg-background px-2 text-xs" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="To date" />
-            <input className="h-8 w-32 shrink-0 rounded-md border bg-background px-2 text-xs" type="time" value={toTime} onChange={(event) => setToTime(event.target.value)} aria-label="To time" />
+          <div className="relative">
+            <select className="h-9 w-full appearance-none rounded-md border bg-background pl-2 pr-10 text-xs" value={crimeType} onChange={(event) => setCrimeType(event.target.value)}>
+              <option value="ALL">All crime types</option>
+              {crimes.map((value) => <option key={value}>{value}</option>)}
+            </select>
+            <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          </div>
+          <div className="relative">
+            <select className="h-9 w-full appearance-none rounded-md border bg-background pl-2 pr-10 text-xs" value={risk} onChange={(event) => setRisk(event.target.value)}>
+              <option value="ALL">All risk levels</option>
+              {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((value) => <option key={value}>{value}</option>)}
+            </select>
+            <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          </div>
+          <button type="button" className="h-9 rounded-md bg-destructive px-3 text-xs font-medium text-destructive-foreground xl:w-[calc(100%_-_0.25rem)]" onClick={reset}>Reset</button>
+          <div className="flex h-9 items-center gap-2 sm:col-span-2 xl:col-span-2">
+            <span className="inline-flex h-9 min-w-12 shrink-0 items-center justify-center rounded-md border bg-muted px-3 text-xs font-semibold text-muted-foreground">From</span>
+            <input className="h-9 w-44 shrink-0 rounded-md border bg-background px-2 text-xs" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" />
+            <input className="h-9 w-32 shrink-0 rounded-md border bg-background px-2 text-xs" type="time" value={fromTime} onChange={(event) => setFromTime(event.target.value)} aria-label="From time" />
+          </div>
+          <div className="flex h-9 items-center gap-2 sm:col-span-2 xl:col-span-2">
+            <span className="inline-flex h-9 min-w-12 shrink-0 items-center justify-center rounded-md border bg-muted px-3 text-xs font-semibold text-muted-foreground">To</span>
+            <input className="h-9 w-44 shrink-0 rounded-md border bg-background px-2 text-xs" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="To date" />
+            <input className="h-9 w-32 shrink-0 rounded-md border bg-background px-2 text-xs" type="time" value={toTime} onChange={(event) => setToTime(event.target.value)} aria-label="To time" />
           </div>
         </div>
       </div>
