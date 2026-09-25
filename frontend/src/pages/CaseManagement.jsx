@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -20,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cases, formatINR } from "@/lib/investigationData";
-import { CalendarDays, Check, ChevronDown, Clock3, RotateCcw, Search } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, ChevronDown, Clock3, ClipboardList, RotateCcw, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const statuses = ["All", "Active", "Monitoring", "Escalated", "Under Investigation", "Resolved", "Closed"];
@@ -96,6 +97,18 @@ const initialFilters = {
   status: "all",
   risk: "all",
   crimeType: "all",
+};
+
+const formatLastActivity = (value) => {
+  const date = new Date(value.replace(" ", "T"));
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return {
+    date: `${day} ${months[date.getMonth()]} ${date.getFullYear()}`,
+    time: `${hours}:${minutes}`,
+  };
 };
 
 function RegionSelect({ regions, value, onValueChange }) {
@@ -198,7 +211,11 @@ export default function CaseManagement() {
         (filters.risk === "all" || priority === filters.risk) &&
         (filters.crimeType === "all" || caseItem.fraudType === filters.crimeType)
       );
-    });
+    }).sort(
+      (first, second) =>
+        new Date(second.lastActivity.replace(" ", "T")) -
+        new Date(first.lastActivity.replace(" ", "T"))
+    );
   }, [filters]);
 
   const updateFilter = (key, value) => {
@@ -293,28 +310,95 @@ export default function CaseManagement() {
         </CardContent>
       </Card>
       <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-sm">Cases</CardTitle>
-          <Badge variant="secondary">{filteredCases.length} of {cases.length}</Badge>
+        <CardHeader className="flex-row items-center justify-between space-y-0 border-b bg-muted/20 px-5 py-4">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+            Cases
+          </CardTitle>
+          <span className="text-xs text-muted-foreground">
+            Showing {filteredCases.length} of {cases.length}
+          </span>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {filteredCases.length ? filteredCases.map((caseItem) => (
-            <div key={caseItem.id} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium">{caseItem.title}</span>
-                  <span className={cn("rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase", priorityTone[caseItem.priority])}>{caseItem.priority}</span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">{caseItem.id} · {caseItem.victim} · {caseItem.branch}</p>
-              </div>
-              <div className="shrink-0 text-left sm:text-right">
-                <p className="text-sm font-semibold">{formatINR(caseItem.amount)}</p>
-                <span className={cn("mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium", statusTone[caseItem.status])}>{caseItem.status}</span>
-              </div>
-            </div>
-          )) : (
-            <p className="py-6 text-center text-sm text-muted-foreground">No cases match the selected filters.</p>
+        <CardContent className="p-0">
+          {filteredCases.length ? (
+            <Table className="min-w-[1080px]">
+              <colgroup>
+                <col className="w-[12%]" />
+                <col className="w-[20%]" />
+                <col className="w-[18%]" />
+                <col className="w-[13%]" />
+                <col className="w-[9%]" />
+                <col className="w-[11%]" />
+                <col className="w-[12%]" />
+                <col className="w-[7%]" />
+              </colgroup>
+              <TableHeader>
+                <TableRow className="border-b bg-muted/10 hover:bg-muted/10">
+                  <TableHead className="h-11 px-5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Case ID</TableHead>
+                  <TableHead className="h-11 px-5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Crime Type</TableHead>
+                  <TableHead className="h-11 px-5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Location</TableHead>
+                  <TableHead className="h-11 px-5 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Amount</TableHead>
+                  <TableHead className="h-11 px-5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Risk</TableHead>
+                  <TableHead className="h-11 px-5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</TableHead>
+                  <TableHead className="h-11 px-5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Last Activity</TableHead>
+                  <TableHead className="h-11 px-5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCases.map((caseItem) => (
+                  <TableRow key={caseItem.id} className="group border-b border-border/60 hover:bg-muted/30">
+                    <TableCell className="whitespace-nowrap px-5 py-5 font-mono text-sm font-semibold tracking-tight text-foreground">
+                      {caseItem.id}
+                    </TableCell>
+                    <TableCell className="min-w-48 px-5 py-5 text-sm text-foreground">{caseItem.fraudType}</TableCell>
+                    <TableCell className="min-w-44 px-5 py-5 text-sm text-muted-foreground">{caseItem.branch}</TableCell>
+                    <TableCell className="whitespace-nowrap px-5 py-5 text-right text-sm font-semibold tabular-nums text-foreground">
+                      {formatINR(caseItem.amount)}
+                    </TableCell>
+                    <TableCell className="px-5 py-5 text-center">
+                      <Badge className={cn("min-w-[4.75rem] justify-center rounded-md px-2 py-1 text-[10px] uppercase tracking-wide", priorityTone[caseItem.priority])}>
+                        {caseItem.priority}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-5 py-5 text-center">
+                      <Badge className={cn("min-w-[5.5rem] justify-center rounded-md border border-transparent px-2 py-1 text-[10px] uppercase tracking-wide", statusTone[caseItem.status])}>
+                        {caseItem.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap px-5 py-5 text-xs">
+                      <div className="text-muted-foreground">{formatLastActivity(caseItem.lastActivity).date}</div>
+                      <div className="mt-0.5 font-medium tabular-nums text-foreground">{formatLastActivity(caseItem.lastActivity).time}</div>
+                    </TableCell>
+                    <TableCell className="px-5 py-5 text-right">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        title={`View details for ${caseItem.id}`}
+                        aria-label={`View details for ${caseItem.id}`}
+                        className="h-8 px-2.5 text-xs opacity-80 transition-opacity group-hover:opacity-100"
+                      >
+                        View Details
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="p-6 text-center text-sm text-muted-foreground">
+              No cases match the selected filters.
+            </p>
           )}
+          <div className="flex flex-col gap-3 border-t bg-muted/10 px-5 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>Showing {filteredCases.length ? 1 : 0}–{filteredCases.length} (max 100) of {filteredCases.length} cases</span>
+            <nav className="flex items-center gap-1" aria-label="Case table pagination">
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled aria-label="Previous page">‹</Button>
+              <Button type="button" variant="secondary" size="sm" className="h-7 min-w-7 px-2 text-xs" aria-current="page">1</Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled aria-label="Next page">›</Button>
+            </nav>
+          </div>
         </CardContent>
       </Card>
     </div>
