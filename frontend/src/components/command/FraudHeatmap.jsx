@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, MapPinned, Maximize2, Minimize2 } from "lucide-react";
 
 const HEAT_GRADIENT = {
@@ -41,6 +41,7 @@ export default function FraudHeatmap() {
   const [toTime, setToTime] = useState("23:59");
   const [error, setError] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mapRevision, setMapRevision] = useState(0);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -51,42 +52,105 @@ export default function FraudHeatmap() {
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  useEffect(() => {
-    const resizeMap = () => mapInstance.current?.invalidateSize({ animate: false });
-    const frame = window.requestAnimationFrame(resizeMap);
-    const timers = [100, 300].map((delay) => window.setTimeout(resizeMap, delay));
+  useLayoutEffect(() => {
+    let disposed = false;
+    let frame = 0;
+    let resizeFrame = 0;
+    let timer = 0;
+    let retryCount = 0;
+    let createdMap = null;
+
+    const removeMap = () => {
+      if (heatRef.current) {
+        heatRef.current.remove();
+        heatRef.current = null;
+      }
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
+
+      const map = createdMap || mapInstance.current;
+      if (map) {
+        map.remove();
+        if (mapInstance.current === map) mapInstance.current = null;
+      }
+      createdMap = null;
+    };
+
+    const initializeMap = () => {
+      if (disposed) return;
+      const L = window.L;
+      const container = mapRef.current;
+      if (!L || !container) return;
+      if (createdMap) {
+        createdMap.invalidateSize({ animate: false, pan: false });
+        return;
+      }
+
+      const { width, height } = container.getBoundingClientRect();
+      if (width === 0 || height === 0) {
+        if (retryCount < 60) {
+          retryCount += 1;
+          frame = window.requestAnimationFrame(initializeMap);
+        }
+        return;
+      }
+
+      removeMap();
+      createdMap = L.map(container, {
+        scrollWheelZoom: true,
+        maxBounds: [[6, 67], [37.5, 98]],
+        maxBoundsViscosity: 0.85,
+      }).setView([22.7, 79.2], 5);
+
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+        maxZoom: 19,
+      }).addTo(createdMap);
+      mapInstance.current = createdMap;
+      setMapRevision((revision) => revision + 1);
+
+      resizeFrame = window.requestAnimationFrame(() => {
+        if (!disposed && mapInstance.current === createdMap) {
+          createdMap.invalidateSize({ animate: false, pan: false });
+        }
+      });
+    };
+
+    const handleLoad = () => initializeMap();
+    if (!window.L) window.addEventListener("load", handleLoad);
+    frame = window.requestAnimationFrame(initializeMap);
+    timer = window.setTimeout(initializeMap, 250);
+
     return () => {
+      disposed = true;
+      window.removeEventListener("load", handleLoad);
       window.cancelAnimationFrame(frame);
-      timers.forEach((timer) => window.clearTimeout(timer));
+      window.cancelAnimationFrame(resizeFrame);
+      window.clearTimeout(timer);
+      removeMap();
     };
   }, [isFullscreen]);
 
   useEffect(() => {
-    if (!mapRef.current || !window.ResizeObserver) return undefined;
-    const observer = new ResizeObserver(() => mapInstance.current?.invalidateSize({ animate: false }));
-    observer.observe(mapRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!window.L || !mapRef.current || mapInstance.current) return undefined;
-    const map = window.L.map(mapRef.current, {
-      scrollWheelZoom: true,
-      maxBounds: [[6, 67], [37.5, 98]],
-      maxBoundsViscosity: 0.85,
-    }).setView([22.7, 79.2], 5);
-
-    window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors",
-      maxZoom: 19,
-    }).addTo(map);
-
-    mapInstance.current = map;
+    const container = mapRef.current;
+    if (!container || !window.ResizeObserver) return undefined;
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const map = mapInstance.current;
+        if (map && container.clientWidth > 0 && container.clientHeight > 0) {
+          map.invalidateSize({ animate: false, pan: false });
+        }
+      });
+    });
+    observer.observe(container);
+    if (container.parentElement) observer.observe(container.parentElement);
     return () => {
-      map.remove();
-      mapInstance.current = null;
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
     };
-  }, []);
+  }, [isFullscreen, mapRevision]);
 
   useEffect(() => {
     Promise.all([
@@ -204,7 +268,7 @@ export default function FraudHeatmap() {
         { maxZoom: 10, animate: false },
       );
     }
-  }, [filtered]);
+  }, [filtered, mapRevision]);
 
   const reset = () => {
     setCity("ALL");
@@ -294,10 +358,10 @@ export default function FraudHeatmap() {
         <div className="flex min-h-96 items-center justify-center p-6 text-sm text-destructive">{error}</div>
       ) : (
         <div className={`grid min-h-0 lg:grid-cols-[minmax(0,1fr)_20rem] ${isFullscreen ? "flex-1 grid-rows-[minmax(0,1fr)]" : ""}`}>
-          <div className={`m-3 min-h-0 overflow-hidden rounded-md border bg-muted ${isFullscreen ? "h-full" : ""}`}>
+          <div className={`m-3 min-h-0 overflow-hidden rounded-md border bg-muted ${isFullscreen ? "h-full min-h-[20rem]" : ""}`}>
             <div
               ref={mapRef}
-              className={`${isFullscreen ? "min-h-0 h-full" : "h-[20rem] lg:h-[27rem]"} [&_.leaflet-container]:h-full`}
+              className={`${isFullscreen ? "h-full min-h-[20rem]" : "h-[20rem] lg:h-[27rem]"} [&_.leaflet-container]:h-full`}
             />
           </div>
           <aside className={`overflow-auto border-t lg:border-l lg:border-t-0 ${isFullscreen ? "max-h-none" : "max-h-[27.5rem]"}`}>
