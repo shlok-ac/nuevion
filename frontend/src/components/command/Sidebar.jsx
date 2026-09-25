@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LayoutDashboard,
+  FileText,
   Banknote,
   Share2,
   Scale,
@@ -19,6 +20,7 @@ const EMBLEM_URL = "/emblem.png";
 
 const nav = [
   { to: "/", label: "Command Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/case-management", label: "Case Management", icon: FileText },
   { to: "/atm-intelligence", label: "ATM Intelligence", icon: Banknote },
   { to: "/money-trail", label: "Money Trail", icon: Share2 },
   { to: "/legal", label: "Legal Window", icon: Scale },
