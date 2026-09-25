@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CaseSelector from "@/components/command/CaseSelector";
@@ -16,8 +17,11 @@ const modes = [
 ];
 
 export default function FreezeSimulation() {
-  const [caseId, setCaseId] = useState(cases[0].id);
-  const [mode, setMode] = useState(scenarioFromStatus[cases[0].status] ?? "normal");
+  const [searchParams] = useSearchParams();
+  const requestedCaseId = searchParams.get("case");
+  const initialCase = cases.find((item) => item.id === requestedCaseId) ?? cases[0];
+  const [caseId, setCaseId] = useState(initialCase.id);
+  const [mode, setMode] = useState(scenarioFromStatus[initialCase.status] ?? "normal");
   const c = cases.find((x) => x.id === caseId);
 
   const onCaseChange = (id) => {

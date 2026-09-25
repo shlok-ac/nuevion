@@ -62,7 +62,9 @@ export default function Topbar() {
 
   return (
     <header className="flex h-16 items-center gap-4 border-b bg-card px-6">
-      <h1 className="text-base font-semibold">{titles[pathname] ?? "Command Center"}</h1>
+      <h1 className="text-base font-semibold">
+        {titles[pathname] ?? (pathname.startsWith("/cases/") ? "Case Details" : "Command Center")}
+      </h1>
       <div className="relative ml-auto hidden md:block">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input

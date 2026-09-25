@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Banknote,
   BrainCircuit,
@@ -192,7 +193,10 @@ const defaultAtmRankings = [
 ];
 
 export default function ATMIntelligence() {
-  const [caseId, setCaseId] = useState(cases[0].id);
+  const [searchParams] = useSearchParams();
+  const requestedCaseId = searchParams.get("case");
+  const initialCaseId = cases.some((item) => item.id === requestedCaseId) ? requestedCaseId : cases[0].id;
+  const [caseId, setCaseId] = useState(initialCaseId);
   const [selectedRegionId, setSelectedRegionId] = useState(regionScores[0].id);
   const [dialogRegion, setDialogRegion] = useState(null);
   const [selectedAtm, setSelectedAtm] = useState(null);

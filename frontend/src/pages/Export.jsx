@@ -2,8 +2,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CaseReportExport from "@/components/command/CaseReportExport";
 import EvidenceReportExport from "@/components/command/EvidenceReportExport";
 import { FileText, FolderArchive } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { cases } from "@/lib/investigationData";
 
 export default function Export() {
+  const [searchParams] = useSearchParams();
+  const requestedCaseId = searchParams.get("case");
+  const initialCaseId = cases.some((item) => item.id === requestedCaseId) ? requestedCaseId : undefined;
   return (
     <div className="space-y-4 p-6">
       <style>{`@media print { body * { visibility: hidden !important; } #case-report-print, #case-report-print *, #evidence-report-print, #evidence-report-print * { visibility: visible !important; } #case-report-print, #evidence-report-print { position: absolute; left: 0; top: 0; width: 100%; } }`}</style>
@@ -21,10 +26,10 @@ export default function Export() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="case">
-          <CaseReportExport />
+          <CaseReportExport initialCaseId={initialCaseId} />
         </TabsContent>
         <TabsContent value="evidence">
-          <EvidenceReportExport />
+          <EvidenceReportExport initialCaseId={initialCaseId} />
         </TabsContent>
       </Tabs>
     </div>

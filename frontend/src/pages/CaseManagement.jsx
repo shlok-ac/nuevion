@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -374,12 +374,15 @@ export default function CaseManagement() {
                         type="button"
                         variant="outline"
                         size="sm"
+                        asChild
                         title={`View details for ${caseItem.id}`}
                         aria-label={`View details for ${caseItem.id}`}
                         className="h-8 px-2.5 text-xs opacity-80 transition-opacity group-hover:opacity-100"
                       >
-                        View Details
-                        <ArrowRight className="h-3.5 w-3.5" />
+                        <Link to={`/cases/${caseItem.id}`}>
+                          View Details
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
                       </Button>
                     </TableCell>
                   </TableRow>
