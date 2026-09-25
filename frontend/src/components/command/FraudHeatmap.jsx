@@ -304,7 +304,7 @@ export default function FraudHeatmap() {
     >
       <div className="flex shrink-0 flex-col gap-3 border-b p-4 pr-14 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex xl:flex-1 xl:-translate-x-4 xl:items-center xl:justify-center">
-          <h2 className="inline-flex min-h-12 w-70 items-center gap-2 whitespace-nowrap rounded-xl border border-border/60 bg-background px-6 py-3 text-base font-semibold text-primary shadow-sm">
+          <h2 className="inline-flex min-h-12 w-70 items-center gap-2 whitespace-nowrap px-6 py-3 text-base font-semibold text-primary">
             <MapPinned aria-hidden="true" className="h-6 w-6 shrink-0" />
             Fraud Heatmap
           </h2>
@@ -365,14 +365,7 @@ export default function FraudHeatmap() {
             />
           </div>
           <aside className={`overflow-auto border-t lg:border-l lg:border-t-0 ${isFullscreen ? "max-h-none" : "max-h-[27.5rem]"}`}>
-            <div className="border-b bg-muted/50 p-5">
-              <span className="text-[11px] font-bold tracking-wider text-muted-foreground">CASES MATCHING FILTER</span>
-              <strong className="my-2 block text-5xl leading-none">{filtered.length}</strong>
-              <span className="text-xs text-muted-foreground">
-                {[city !== "ALL" ? city : "All cities", crimeType !== "ALL" ? crimeType : "All crimes", risk !== "ALL" ? risk : "All risk levels"].join(" · ")}
-              </span>
-            </div>
-            <div className="flex items-center justify-between p-4">
+            <div className="m-3 flex items-center justify-between rounded-lg border bg-background p-4 shadow-sm">
               <div><h3 className="text-sm font-semibold">ATM Ranking</h3><p className="text-[11px] text-muted-foreground">Highest risk first</p></div>
               <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-primary/10 px-2 text-xs font-bold text-primary">{rankedAtms.length}</span>
             </div>
