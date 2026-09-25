@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,11 +20,54 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cases, formatINR } from "@/lib/investigationData";
-import { Check, ChevronDown, RotateCcw, Search } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Clock3, RotateCcw, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const statuses = ["All", "Active", "Monitoring", "Escalated", "Under Investigation", "Resolved", "Closed"];
 const riskLevels = ["All", "Critical", "High", "Medium", "Low"];
+
+function DateTimeInput({ type, value, onChange, ariaLabel, className }) {
+  const inputRef = useRef(null);
+  const Icon = type === "date" ? CalendarDays : Clock3;
+
+  const openPicker = () => {
+    const input = inputRef.current;
+    if (!input) return;
+
+    if (typeof input.showPicker === "function") {
+      try {
+        input.showPicker();
+        return;
+      } catch {
+        // Fall back to the native control if showPicker is unavailable or blocked.
+      }
+    }
+
+    input.focus();
+    input.click();
+  };
+
+  return (
+    <div className={cn("relative", className)}>
+      <Input
+        ref={inputRef}
+        type={type}
+        value={value}
+        onChange={onChange}
+        aria-label={ariaLabel}
+        className="h-9 w-full appearance-none rounded-md border bg-background px-2 pr-10 text-left text-xs md:text-sm [&::-webkit-calendar-picker-indicator]:hidden"
+      />
+      <button
+        type="button"
+        aria-label={`Open ${type} picker`}
+        onClick={openPicker}
+        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
 
 const priorityTone = {
   critical: "border-red-200 bg-red-500/10 text-red-600",
@@ -106,7 +150,18 @@ function RegionSelect({ regions, value, onValueChange }) {
 }
 
 export default function CaseManagement() {
-  const [filters, setFilters] = useState(initialFilters);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchFromUrl = searchParams.get("search") ?? "";
+  const [filters, setFilters] = useState(() => ({
+    ...initialFilters,
+    search: searchFromUrl,
+  }));
+
+  useEffect(() => {
+    setFilters((current) =>
+      current.search === searchFromUrl ? current : { ...current, search: searchFromUrl }
+    );
+  }, [searchFromUrl]);
 
   const locations = useMemo(
     () => [...new Set(cases.map((caseItem) => caseItem.branch))],
@@ -148,6 +203,20 @@ export default function CaseManagement() {
 
   const updateFilter = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
+
+    if (key === "search") {
+      const nextParams = new URLSearchParams(searchParams);
+      if (value) nextParams.set("search", value);
+      else nextParams.delete("search");
+      setSearchParams(nextParams, { replace: true });
+    }
+  };
+
+  const resetFilters = () => {
+    setFilters(initialFilters);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("search");
+    setSearchParams(nextParams, { replace: true });
   };
 
   return (
@@ -166,6 +235,7 @@ export default function CaseManagement() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              autoFocus={Boolean(searchFromUrl)}
               value={filters.search}
               onChange={(event) => updateFilter("search", event.target.value)}
               placeholder="Search case ID, suspect, account..."
@@ -174,7 +244,7 @@ export default function CaseManagement() {
             />
           </div>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="xl:max-w-[405px]">
+            <div className="min-w-0 xl:mr-2">
               <RegionSelect
                 regions={locations}
                 value={filters.location}
@@ -182,14 +252,14 @@ export default function CaseManagement() {
               />
             </div>
             <div className="flex min-w-0 items-center gap-2">
-              <span className="inline-flex h-9 w-16 shrink-0 items-center justify-center rounded-md border bg-muted px-3 text-xs font-semibold text-muted-foreground">From</span>
-              <Input className="min-w-0 flex-1 text-xs" type="date" value={filters.fromDate} onChange={(event) => updateFilter("fromDate", event.target.value)} aria-label="From date" />
-              <Input className="min-w-0 flex-1 text-xs" type="time" value={filters.fromTime} onChange={(event) => updateFilter("fromTime", event.target.value)} aria-label="From time" />
+              <span className="inline-flex h-9 min-w-12 shrink-0 items-center justify-center rounded-md border bg-muted px-3 text-xs font-semibold text-muted-foreground">From</span>
+              <DateTimeInput className="min-w-0 flex-[1.375]" type="date" value={filters.fromDate} onChange={(event) => updateFilter("fromDate", event.target.value)} ariaLabel="From date" />
+              <DateTimeInput className="min-w-0 flex-1" type="time" value={filters.fromTime} onChange={(event) => updateFilter("fromTime", event.target.value)} ariaLabel="From time" />
             </div>
             <div className="flex min-w-0 items-center gap-2">
-              <span className="inline-flex h-9 w-16 shrink-0 items-center justify-center rounded-md border bg-muted px-3 text-xs font-semibold text-muted-foreground">To</span>
-              <Input className="min-w-0 flex-1 text-xs" type="date" value={filters.toDate} onChange={(event) => updateFilter("toDate", event.target.value)} aria-label="To date" />
-              <Input className="min-w-0 flex-1 text-xs" type="time" value={filters.toTime} onChange={(event) => updateFilter("toTime", event.target.value)} aria-label="To time" />
+              <span className="inline-flex h-9 min-w-12 shrink-0 items-center justify-center rounded-md border bg-muted px-3 text-xs font-semibold text-muted-foreground">To</span>
+              <DateTimeInput className="min-w-0 flex-[1.375]" type="date" value={filters.toDate} onChange={(event) => updateFilter("toDate", event.target.value)} ariaLabel="To date" />
+              <DateTimeInput className="min-w-0 flex-1" type="time" value={filters.toTime} onChange={(event) => updateFilter("toTime", event.target.value)} ariaLabel="To time" />
             </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -216,7 +286,7 @@ export default function CaseManagement() {
                 ))}
               </SelectContent>
             </Select>
-            <Button type="button" variant="destructive" onClick={() => setFilters(initialFilters)} className="w-full">
+            <Button type="button" variant="destructive" onClick={resetFilters} className="w-full">
               <RotateCcw className="h-4 w-4" /> Reset
             </Button>
           </div>
