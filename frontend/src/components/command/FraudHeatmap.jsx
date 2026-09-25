@@ -296,7 +296,7 @@ export default function FraudHeatmap() {
   return (
     <div
       ref={cardRef}
-      className={`relative overflow-hidden border bg-card text-card-foreground shadow-sm ${
+      className={`relative overflow-hidden border bg-card text-card-foreground shadow ${
         isFullscreen
           ? "fixed inset-0 z-50 flex h-screen w-screen flex-col rounded-none"
           : "rounded-lg"
@@ -364,7 +364,7 @@ export default function FraudHeatmap() {
               className={`${isFullscreen ? "h-full min-h-[20rem]" : "h-[20rem] lg:h-[27rem]"} [&_.leaflet-container]:h-full`}
             />
           </div>
-          <aside className={`overflow-auto border-t lg:border-l lg:border-t-0 ${isFullscreen ? "max-h-none" : "max-h-[27.5rem]"}`}>
+          <aside className={`overflow-auto border-t [scrollbar-width:none] lg:border-l lg:border-t-0 [&::-webkit-scrollbar]:hidden ${isFullscreen ? "max-h-none" : "max-h-[27.5rem]"}`}>
             <div className="m-3 flex items-center justify-between rounded-lg border bg-background p-4 shadow-sm">
               <div><h3 className="text-sm font-semibold">ATM Ranking</h3><p className="text-[11px] text-muted-foreground">Highest risk first</p></div>
               <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-primary/10 px-2 text-xs font-bold text-primary">{rankedAtms.length}</span>
