@@ -1,4 +1,4 @@
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Search, Bell, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 
 const titles = {
   "/": "Command Dashboard",
+  "/case-management": "Case Management",
   "/atm-intelligence": "ATM Intelligence",
   "/money-trail": "Interactive Money Trail",
   "/legal": "Legal Window — §106 BNSS Freeze Notice",
@@ -26,19 +27,51 @@ const titles = {
 const chainFor = (caseId) => cases.find((c) => c.id === caseId)?.muleChainId;
 
 export default function Topbar() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
+  const [searchQuery, setSearchQuery] = useState("");
+
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    const nextSearch = pathname === "/case-management" ? new URLSearchParams(search).get("search") ?? "" : "";
+    setSearchQuery(nextSearch);
+  }, [pathname, search]);
+
+  const handleSearchChange = (event) => {
+    const value = event.target.value;
+    setSearchQuery(value);
+
+    if (pathname === "/case-management") {
+      const params = new URLSearchParams(search);
+      if (value) params.set("search", value);
+      else params.delete("search");
+      const nextSearch = params.toString();
+      navigate({ pathname, search: nextSearch ? `?${nextSearch}` : "" }, { replace: true });
+      return;
+    }
+
+    if (value) {
+      navigate(`/case-management?search=${encodeURIComponent(value)}`);
+    }
+  };
+
   return (
     <header className="flex h-16 items-center gap-4 border-b bg-card px-6">
-      <h1 className="text-base font-semibold">{titles[pathname] ?? "Command Center"}</h1>
+      <h1 className="text-base font-semibold">
+        {titles[pathname] ?? (pathname.startsWith("/cases/") ? "Case Details" : "Command Center")}
+      </h1>
       <div className="relative ml-auto hidden md:block">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
+          value={searchQuery}
+          onChange={handleSearchChange}
           placeholder="Search case, account, suspect…"
+          aria-label="Search cases, accounts, and suspects"
           className="h-9 w-72 rounded-md border bg-background pl-9 pr-3 text-sm outline-none focus:ring-1 focus:ring-ring"
         />
       </div>

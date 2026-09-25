@@ -7,11 +7,14 @@ import CaseSelector from "@/components/command/CaseSelector";
 import { Printer, Download, FileText } from "lucide-react";
 import FreezeNoticeDoc from "@/components/command/FreezeNoticeDoc";
 import { cases } from "@/lib/investigationData";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 
 export default function LegalWindow() {
   const { state } = useLocation();
-  const initialCase = cases.find((c) => c.muleChainId === state?.caseId) ?? cases[0];
+  const [searchParams] = useSearchParams();
+  const initialCase = cases.find((c) => c.id === searchParams.get("case"))
+    ?? cases.find((c) => c.muleChainId === state?.caseId)
+    ?? cases[0];
   const [caseId, setCaseId] = useState(initialCase.id);
   const noticeRef = useRef(null);
 

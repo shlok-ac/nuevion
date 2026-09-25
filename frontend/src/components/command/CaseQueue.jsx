@@ -31,7 +31,7 @@ export default function CaseQueue() {
         </CardHeader>
         <CardContent className="space-y-2">
           {sortedCases.map((c) => (
-            <Link key={c.id} to="/money-trail" state={{ caseId: c.muleChainId }} className="block">
+            <Link key={c.id} to={`/cases/${c.id}`} className="block">
               <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
