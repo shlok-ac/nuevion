@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { cases, alerts, formatINR } from "@/lib/investigationData";
 import { cn } from "@/lib/utils";
+import FraudHeatmap from "@/components/command/FraudHeatmap";
 
 const priorityTone = {
   critical: "bg-red-500/10 text-red-600 border-red-200",
@@ -74,11 +75,9 @@ export default function CaseQueue() {
         </CardContent>
       </Card>
 
-      <Card className="lg:col-span-2">
-        <CardContent className="flex min-h-40 items-center justify-center p-6">
-          <p className="text-sm text-muted-foreground">map with drill down filters</p>
-        </CardContent>
-      </Card>
+      <div className="lg:col-span-2">
+        <FraudHeatmap />
+      </div>
     </div>
   );
 }
