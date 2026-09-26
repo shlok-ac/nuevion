@@ -350,6 +350,7 @@ export default function ATMIntelligence() {
       title: "Case summary",
       icon: Landmark,
       tone: "text-sky-600",
+      accent: "hover:border-sky-300 hover:shadow-[0_16px_32px_-16px_rgb(2_132_199/0.22)]",
       rows: [
         ["Victim", activeCase.victim],
         ["Fraud type", activeCase.fraudType],
@@ -361,6 +362,7 @@ export default function ATMIntelligence() {
       title: "Asset flow",
       icon: Banknote,
       tone: "text-emerald-600",
+      accent: "hover:border-emerald-300 hover:shadow-[0_16px_32px_-16px_rgb(5_150_105/0.22)]",
       rows: [
         ["Bank", activeCase.bank],
         ["Account", activeCase.account],
@@ -372,6 +374,7 @@ export default function ATMIntelligence() {
       title: "Network picture",
       icon: Users,
       tone: "text-violet-600",
+      accent: "hover:border-violet-300 hover:shadow-[0_16px_32px_-16px_rgb(124_58_237/0.22)]",
       rows: [
         ["Linked suspects", `${linkedSuspects.length}`],
         ["Mule layers", `${maxLayer + 1}`],
@@ -419,11 +422,17 @@ export default function ATMIntelligence() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        {summaryCards.map(({ title, icon: Icon, tone, rows }) => (
-          <Card key={title} className="h-full">
+        {summaryCards.map(({ title, icon: Icon, tone, accent, rows }) => (
+          <Card
+            key={title}
+            className={cn(
+              "group h-full transition-all duration-300 ease-out hover:-translate-y-1",
+              accent
+            )}
+          >
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-sm font-medium text-foreground">{title}</CardTitle>
-              <Icon className={cn("h-4 w-4", tone)} />
+              <Icon className={cn("h-4 w-4 shrink-0 transition-transform duration-300 group-hover:scale-110", tone)} />
             </CardHeader>
             <CardContent className="space-y-2.5 text-sm">
               {rows.map(([label, value]) => (
@@ -462,10 +471,10 @@ export default function ATMIntelligence() {
               <div
                 key={region.id}
                 className={cn(
-                  "rounded-lg border p-3 transition-colors",
+                  "rounded-lg border p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-10px_rgb(15_23_42/0.25)]",
                   selectedRegionId === region.id
                     ? "border-primary/30 bg-primary/[0.03] ring-1 ring-primary/10"
-                    : "border-border bg-background hover:bg-accent"
+                    : "border-border bg-background hover:border-foreground/15 hover:bg-accent"
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -807,16 +816,19 @@ export default function ATMIntelligence() {
 
       <div className="grid gap-4 xl:grid-cols-3">
         {aiModels.map(({ name, score, verdict, detail }) => (
-          <Card key={name} className="h-full">
+          <Card
+            key={name}
+            className="group h-full transition-all duration-300 ease-out hover:-translate-y-1 hover:border-emerald-300 hover:shadow-[0_16px_32px_-16px_rgb(5_150_105/0.22)]"
+          >
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <BrainCircuit className="h-4 w-4 text-primary" />
+                <BrainCircuit className="h-4 w-4 shrink-0 text-primary transition-transform duration-300 group-hover:scale-110" />
                 {name}
               </CardTitle>
               <span className="text-lg font-semibold text-foreground">{score}%</span>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-2 overflow-hidden rounded-full bg-slate-200 transition-colors duration-300 group-hover:bg-slate-300">
                 <div className="h-full rounded-full bg-primary" style={{ width: `${score}%` }} />
               </div>
               <div className="flex items-center gap-2 text-emerald-600">

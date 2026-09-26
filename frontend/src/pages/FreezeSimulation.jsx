@@ -79,6 +79,9 @@ export default function FreezeSimulation() {
           tone: "text-emerald-600",
           badge: "bg-emerald-500/10 text-emerald-600",
           card: "border-emerald-200",
+          cardHover: "hover:border-emerald-300",
+          shadow: "hover:shadow-[0_16px_32px_-16px_rgb(16_185_129/0.35)]",
+          glow: "bg-emerald-500/20",
           rows: [
             ["Account", `${c.account} (${c.bank})`],
             ["Debits", "Blocked silently"],
@@ -93,6 +96,9 @@ export default function FreezeSimulation() {
           tone: "text-red-600",
           badge: "bg-red-500/10 text-red-600",
           card: "border-red-200",
+          cardHover: "hover:border-red-300",
+          shadow: "hover:shadow-[0_16px_32px_-16px_rgb(239_68_68/0.35)]",
+          glow: "bg-red-500/20",
           rows: [
             ["Account", `${c.account} (${c.bank})`],
             ["Debits", "Declined by bank"],
@@ -105,6 +111,9 @@ export default function FreezeSimulation() {
           tone: "text-blue-600",
           badge: "bg-blue-500/10 text-blue-600",
           card: "border-blue-200",
+          cardHover: "hover:border-blue-300",
+          shadow: "hover:shadow-[0_16px_32px_-16px_rgb(59_130_246/0.35)]",
+          glow: "bg-blue-500/20",
           rows: [
             ["Account", `${c.account} (${c.bank})`],
             ["Debits", "Permitted"],
@@ -172,14 +181,31 @@ export default function FreezeSimulation() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className={reality.card}>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
+        <Card
+          className={cn(
+            "group relative overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1",
+            reality.card,
+            reality.cardHover,
+            reality.shadow
+          )}
+        >
+          <div
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full opacity-0 blur-2xl transition-all duration-500 group-hover:scale-150 group-hover:opacity-100",
+              reality.glow
+            )}
+          />
+          <CardHeader className="relative flex-row items-center justify-between space-y-0">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <ShieldCheck className={cn("h-4 w-4", reality.tone)} /> Officer reality
+              <ShieldCheck
+                className={cn("h-4 w-4 transition-transform duration-300 group-hover:scale-110", reality.tone)}
+              />{" "}
+              Officer reality
             </CardTitle>
             <Badge className={reality.badge}>{reality.title}</Badge>
           </CardHeader>
-          <CardContent className="space-y-1.5 text-sm">
+          <CardContent className="relative space-y-1.5 text-sm">
             {reality.rows.map(([k, v]) => (
               <p key={k}>
                 <span className="text-muted-foreground">{k}:</span> {v}
