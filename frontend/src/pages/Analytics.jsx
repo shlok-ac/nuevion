@@ -138,21 +138,66 @@ function ChartCard({ title, description, action, children, className }) {
 
 function KpiCard({ label, value, detail, icon: Icon, tone = "blue" }) {
   const tones = {
-    blue: "bg-blue-50 text-blue-600",
-    red: "bg-red-50 text-red-600",
-    amber: "bg-amber-50 text-amber-600",
-    teal: "bg-teal-50 text-teal-600",
+    blue: {
+      chip: "bg-blue-50 text-blue-600",
+      chipHover: "group-hover:bg-blue-100 group-hover:text-blue-700",
+      border: "hover:border-blue-500/40",
+      shadow: "hover:shadow-[0_16px_32px_-16px_rgb(59_130_246/0.35)]",
+      glow: "bg-blue-500/20",
+    },
+    red: {
+      chip: "bg-red-50 text-red-600",
+      chipHover: "group-hover:bg-red-100 group-hover:text-red-700",
+      border: "hover:border-red-500/40",
+      shadow: "hover:shadow-[0_16px_32px_-16px_rgb(239_68_68/0.35)]",
+      glow: "bg-red-500/20",
+    },
+    amber: {
+      chip: "bg-amber-50 text-amber-600",
+      chipHover: "group-hover:bg-amber-100 group-hover:text-amber-700",
+      border: "hover:border-amber-500/40",
+      shadow: "hover:shadow-[0_16px_32px_-16px_rgb(245_158_11/0.35)]",
+      glow: "bg-amber-500/20",
+    },
+    teal: {
+      chip: "bg-teal-50 text-teal-600",
+      chipHover: "group-hover:bg-teal-100 group-hover:text-teal-700",
+      border: "hover:border-teal-500/40",
+      shadow: "hover:shadow-[0_16px_32px_-16px_rgb(20_184_166/0.35)]",
+      glow: "bg-teal-500/20",
+    },
   };
 
+  const t = tones[tone] ?? tones.blue;
+
   return (
-    <Card>
-      <CardContent className="flex items-start justify-between p-4">
+    <Card
+      className={cn(
+        "group relative overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1",
+        t.border,
+        t.shadow
+      )}
+    >
+      <div
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full opacity-0 blur-2xl transition-all duration-500 group-hover:scale-150 group-hover:opacity-100",
+          t.glow
+        )}
+      />
+      <CardContent className="relative flex items-start justify-between p-4">
         <div>
           <p className="text-xs font-medium text-muted-foreground">{label}</p>
           <p className="mt-2 text-xl font-semibold tracking-tight">{value}</p>
           <p className="mt-1 text-[11px] text-muted-foreground">{detail}</p>
         </div>
-        <div className={cn("rounded-lg p-2", tones[tone])}>
+        <div
+          className={cn(
+            "rounded-lg p-2 transition-all duration-300 group-hover:scale-105",
+            t.chip,
+            t.chipHover
+          )}
+        >
           <Icon className="h-4 w-4" />
         </div>
       </CardContent>
