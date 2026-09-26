@@ -206,11 +206,11 @@ export default function CaseDetails() {
       </Card>
 
       {/* ------------------------------------------- Investigation Timeline + Status */}
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,1fr)]">
-        <Card className="min-w-0">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,1fr)]">
+        <Card className="flex min-w-0 flex-col">
           <CardHeader className={cardHeaderClass}><CardTitle className={sectionTitleClass}>Investigation Timeline</CardTitle></CardHeader>
-          <CardContent className={cardBodyClass}>
-            <div className="grid grid-cols-[3rem_0.75rem_minmax(0,1fr)]">
+          <CardContent className={cn(cardBodyClass, "flex-1")}>
+            <div className="grid h-full auto-rows-fr grid-cols-[3rem_0.75rem_minmax(0,1fr)]">
               {timeline.map(([time, label], index) => (
                 <Fragment key={`${time}-${label}`}>
                   <TimelineRow time={time} label={label} isLast={index === timeline.length - 1} />
@@ -219,48 +219,48 @@ export default function CaseDetails() {
             </div>
           </CardContent>
         </Card>
-        <Card className="min-w-0">
-          <CardHeader className={cardHeaderClass}><CardTitle className={sectionTitleClass}>Case Status Information</CardTitle></CardHeader>
-          <CardContent className={cardBodyClass}>
-            <StatusRow label="Current Status">
-              <Badge className={cn(badgeSizingClass, "uppercase", statusTone[caseItem.status])}>{caseItem.status}</Badge>
-            </StatusRow>
-            <StatusRow label="Risk">
-              <Badge className={cn(badgeSizingClass, "uppercase", priorityTone[caseItem.priority])}>{caseItem.priority}</Badge>
-            </StatusRow>
-            <StatusRow label="Priority">Immediate Attention</StatusRow>
-            <StatusRow label="Last Action">Freeze request initiated</StatusRow>
-          </CardContent>
-        </Card>
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card className="min-w-0">
+            <CardHeader className={cardHeaderClass}><CardTitle className={sectionTitleClass}>Case Status Information</CardTitle></CardHeader>
+            <CardContent className={cardBodyClass}>
+              <StatusRow label="Current Status">
+                <Badge className={cn(badgeSizingClass, "uppercase", statusTone[caseItem.status])}>{caseItem.status}</Badge>
+              </StatusRow>
+              <StatusRow label="Risk">
+                <Badge className={cn(badgeSizingClass, "uppercase", priorityTone[caseItem.priority])}>{caseItem.priority}</Badge>
+              </StatusRow>
+              <StatusRow label="Priority">Immediate Attention</StatusRow>
+              <StatusRow label="Last Action">Freeze request initiated</StatusRow>
+            </CardContent>
+          </Card>
+          <Card className="min-w-0">
+            <CardHeader className={cardHeaderClass}><CardTitle className={sectionTitleClass}>Operational Actions</CardTitle></CardHeader>
+            <CardContent className={cardBodyClass}>
+              <ul className="flex flex-col overflow-hidden rounded-md border border-border/70">
+                {OPERATIONAL_ACTIONS.map(({ actionType, label }) => {
+                  const record = getRecord(actionType);
+                  const status = record?.status ?? ACTION_STATUS.pending;
+                  return (
+                    <li key={actionType} className="flex min-h-9 items-center justify-between gap-3 border-b border-border/60 px-3 text-xs last:border-b-0">
+                      <span className="min-w-0 truncate font-medium text-foreground">
+                        {label}
+                        {record ? <span className="ml-1.5 font-mono text-[11px] font-normal text-muted-foreground">{record.atmId}</span> : null}
+                      </span>
+                      <Badge
+                        className={cn(badgeSizingClass, "gap-0.5 uppercase", operationalStatusTone[status] ?? operationalStatusTone[ACTION_STATUS.pending])}
+                        title={record ? record.details : "No action initiated yet"}
+                      >
+                        {record ? <Check className="h-3 w-3" /> : null}
+                        {getActionStatusLabel(status)}
+                      </Badge>
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-
-      {/* ------------------------------------------------------ Operational Actions */}
-      <Card>
-        <CardHeader className={cardHeaderClass}><CardTitle className={sectionTitleClass}>Operational Actions</CardTitle></CardHeader>
-        <CardContent className={cn(cardBodyClass, "max-w-3xl")}>
-          <ul className="flex flex-col overflow-hidden rounded-md border border-border/70">
-            {OPERATIONAL_ACTIONS.map(({ actionType, label }) => {
-              const record = getRecord(actionType);
-              const status = record?.status ?? ACTION_STATUS.pending;
-              return (
-                <li key={actionType} className="flex min-h-9 items-center justify-between gap-3 border-b border-border/60 px-3 text-xs last:border-b-0">
-                  <span className="min-w-0 truncate font-medium text-foreground">
-                    {label}
-                    {record ? <span className="ml-1.5 font-mono text-[11px] font-normal text-muted-foreground">{record.atmId}</span> : null}
-                  </span>
-                  <Badge
-                    className={cn(badgeSizingClass, "gap-0.5 uppercase", operationalStatusTone[status] ?? operationalStatusTone[ACTION_STATUS.pending])}
-                    title={record ? record.details : "No action initiated yet"}
-                  >
-                    {record ? <Check className="h-3 w-3" /> : null}
-                    {getActionStatusLabel(status)}
-                  </Badge>
-                </li>
-              );
-            })}
-          </ul>
-        </CardContent>
-      </Card>
 
       {/* ------------------------------------------------------------- Activity Log */}
       <Card>
@@ -312,13 +312,14 @@ function HeaderMeta({ label, children }) {
 function TimelineRow({ time, label, isLast }) {
   return (
     <>
-      <span className="flex h-9 items-center pr-3 font-mono text-xs font-semibold tabular-nums text-muted-foreground">{time}</span>
-      <span className="relative flex h-9 items-center justify-center">
-        {/* Hairline is exactly one row tall, so it runs centre-to-centre with no gaps. */}
-        {!isLast && <span aria-hidden="true" className="absolute left-1/2 top-1/2 h-9 w-px -translate-x-1/2 bg-border" />}
+      <span className="flex h-full min-h-9 items-center pr-3 font-mono text-xs font-semibold tabular-nums text-muted-foreground">{time}</span>
+      <span className="relative flex h-full min-h-9 items-center justify-center">
+        {/* Hairline spans the whole row, so it runs centre-to-centre with no gaps
+            however far the timeline is stretched to match the cards beside it. */}
+        {!isLast && <span aria-hidden="true" className="absolute left-1/2 top-1/2 h-full w-px -translate-x-1/2 bg-border" />}
         <span aria-hidden="true" className="relative h-2 w-2 rounded-full border-2 border-background bg-muted-foreground/70" />
       </span>
-      <span className="flex h-9 items-center pl-3 text-sm">{label}</span>
+      <span className="flex h-full min-h-9 items-center pl-3 text-sm">{label}</span>
     </>
   );
 }
