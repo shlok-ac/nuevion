@@ -1,13 +1,17 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  ArrowRight,
   Banknote,
+  Bell,
   BrainCircuit,
   CheckCircle2,
   ClipboardCopy,
   Clock3,
+  FileLock2,
   MapPin,
   ShieldAlert,
+  UserCheck,
   X,
   Eye,
   Info,
@@ -17,6 +21,7 @@ import {
   Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -192,6 +197,49 @@ const defaultAtmRankings = [
   { rank: 3, atm: "ATM-326", location: "Railway Station Road", riskScore: 68, linkedCases: 3, fraudAmount: "₹0.9L", predictedWindow: "22:00–00:00", status: "Moderate" },
 ];
 
+const recommendedActions = [
+  {
+    id: "priority-watch",
+    icon: Eye,
+    title: "Add to Priority Watch",
+    description: "Monitor the ATM during the predicted withdrawal window.",
+    actionLabel: "Add to Watchlist",
+    doneLabel: "Added to Watchlist",
+    confirmation: "ATM added to the priority watchlist.",
+    chips: ({ targetAtm }) => [targetAtm.atm, targetAtm.predictedWindow],
+  },
+  {
+    id: "bank-nodal-officer",
+    icon: Bell,
+    title: "Notify Bank Nodal Officer",
+    description: "Prepare a case-linked coordination request for the bank.",
+    actionLabel: "Prepare Bank Request",
+    doneLabel: "Request Prepared",
+    confirmation: "Bank coordination request prepared for officer review.",
+    chips: ({ activeCase }) => [activeCase.bank, activeCase.id],
+  },
+  {
+    id: "preserve-evidence",
+    icon: FileLock2,
+    title: "Preserve ATM Evidence",
+    description: "Create a request to preserve CCTV, ATM journal, and transaction records.",
+    actionLabel: "Create Evidence Request",
+    doneLabel: "Request Created",
+    confirmation: "Evidence preservation request created for officer review.",
+    chips: ({ targetAtm }) => [targetAtm.atm, targetAtm.location],
+  },
+  {
+    id: "field-verification",
+    icon: UserCheck,
+    title: "Field Verification",
+    description: "Assign local verification during the predicted withdrawal window.",
+    actionLabel: "Assign Verification",
+    doneLabel: "Verification Assigned",
+    confirmation: "Field verification task assigned to the local unit.",
+    chips: ({ targetAtm }) => ["Local unit", targetAtm.predictedWindow],
+  },
+];
+
 export default function ATMIntelligence() {
   const [searchParams] = useSearchParams();
   const requestedCaseId = searchParams.get("case");
@@ -200,6 +248,13 @@ export default function ATMIntelligence() {
   const [selectedRegionId, setSelectedRegionId] = useState(regionScores[0].id);
   const [dialogRegion, setDialogRegion] = useState(null);
   const [selectedAtm, setSelectedAtm] = useState(null);
+  const [initiatedActions, setInitiatedActions] = useState({});
+
+  const handleRecommendedAction = (actionId) => {
+    setInitiatedActions((previous) =>
+      previous[actionId] ? previous : { ...previous, [actionId]: true }
+    );
+  };
 
   const activeCase = useMemo(() => cases.find((item) => item.id === caseId) ?? cases[0], [caseId]);
 
@@ -227,6 +282,9 @@ export default function ATMIntelligence() {
         ],
       }
     : null;
+
+  // ATM the recommended actions target: the one open in the details panel, else the top-ranked ATM.
+  const targetAtm = atmDetails ?? selectedAtms[0] ?? {};
 
   const summaryCards = [
     {
@@ -563,20 +621,106 @@ export default function ATMIntelligence() {
             </CardContent>
           </Card>
 
-          <Card className="h-full">
+          <Card className="flex h-full flex-col">
             <CardHeader className="border-b bg-muted/20">
-              <CardTitle className="text-sm font-medium text-foreground">Recommended actions</CardTitle>
+              <CardTitle className="text-sm font-medium text-foreground">Recommended Actions</CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">
-                Operational responses for the selected region will be available here.
+                Suggested operational responses based on the verified ATM risk.
               </p>
             </CardHeader>
-            <CardContent className="flex min-h-[280px] items-center justify-center p-5">
-              <div className="w-full rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center">
-                <p className="text-sm font-medium text-foreground">Action controls coming next</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Recommended response options for {selectedRegion.name} will be added here.
-                </p>
-              </div>
+            <CardContent className="grid flex-1 auto-rows-fr gap-3 p-4 sm:grid-cols-2">
+              {recommendedActions.map((action) => {
+                const { icon: Icon } = action;
+                const isInitiated = Boolean(initiatedActions[action.id]);
+                const chips = action.chips({ targetAtm, activeCase }).filter(Boolean);
+
+                return (
+                  <div
+                    key={action.id}
+                    className={cn(
+                      "group flex flex-col rounded-lg border bg-background transition-all focus-within:border-primary/40",
+                      isInitiated
+                        ? "border-emerald-200 bg-emerald-500/[0.06]"
+                        : "border-border hover:border-primary/25 hover:shadow-sm"
+                    )}
+                  >
+                    <div className="flex items-start gap-2.5 p-3.5">
+                      <span
+                        className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border",
+                          isInitiated
+                            ? "border-emerald-200 bg-emerald-500/10 text-emerald-600"
+                            : "border-border bg-muted/40 text-primary"
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium leading-tight text-foreground">{action.title}</p>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                              isInitiated
+                                ? "border-emerald-200 bg-emerald-500/10 text-emerald-700"
+                                : "border-border bg-muted/40 text-muted-foreground"
+                            )}
+                          >
+                            {isInitiated ? "Initiated" : "Pending"}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+                          {action.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-1 flex-col justify-center px-3.5 pb-3.5">
+                      <div className="flex flex-wrap gap-1.5">
+                        {chips.map((chip) => (
+                          <span
+                            key={chip}
+                            className="rounded-md border bg-muted/40 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                          >
+                            {chip}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border-t p-2.5">
+                      <div className="mb-2 flex min-h-[1.75rem] items-start gap-1.5 px-1" aria-live="polite">
+                        {isInitiated ? (
+                          <>
+                            <CheckCircle2 className="mt-px h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                            <p className="text-[11px] leading-snug text-emerald-700">{action.confirmation}</p>
+                          </>
+                        ) : null}
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={isInitiated}
+                        onClick={() => handleRecommendedAction(action.id)}
+                        className={cn(
+                          "w-full justify-between px-3 transition-colors",
+                          isInitiated
+                            ? "border-emerald-200 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-700 disabled:opacity-100"
+                            : "group-hover:border-primary/30 group-hover:bg-accent group-hover:text-accent-foreground"
+                        )}
+                      >
+                        {isInitiated ? action.doneLabel : action.actionLabel}
+                        {isInitiated ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         </div>
