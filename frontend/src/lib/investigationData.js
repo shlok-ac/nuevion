@@ -248,25 +248,6 @@ export const suspects = [
   { id: "S-06", name: "Mohan Verma", aliases: "—", phone: "+91-78xxxxxx19", aadhaar: "XXXX-XXXX-9087", bank: "Paytm Payments Bank", accounts: 1, linkedCases: ["C-2026-0628"], status: "cleared", risk: "low", location: "Noida, UP" },
 ];
 
-export const muleAccounts = [
-  { accountId: "XXXXXX4102", bank: "State Bank of India", linkedCases: ["C-2026-0417"], totalInflow: 1980000, totalOutflow: 1962000, risk: "HIGH", status: "FROZEN" },
-  { accountId: "XXXXXX2738", bank: "Punjab National Bank", linkedCases: ["C-2026-0628"], totalInflow: 620000, totalOutflow: 604000, risk: "MEDIUM", status: "UNDER_REVIEW" },
-  { accountId: "XXXXXX6541", bank: "Canara Bank", linkedCases: ["C-2026-0512"], totalInflow: 1130000, totalOutflow: 1112000, risk: "MEDIUM", status: "ACTIVE" },
-  { accountId: "XXXXXX3286", bank: "IDBI Bank", linkedCases: ["C-2026-0417", "C-2026-0628"], totalInflow: 3420000, totalOutflow: 3385000, risk: "CRITICAL", status: "FROZEN" },
-  { accountId: "XXXXXX8014", bank: "Union Bank of India", linkedCases: ["C-2026-0628"], totalInflow: 380000, totalOutflow: 372000, risk: "LOW", status: "MONITORED" },
-  { accountId: "XXXXXX5673", bank: "IndusInd Bank", linkedCases: ["C-2026-0512"], totalInflow: 875000, totalOutflow: 860000, risk: "MEDIUM", status: "UNDER_REVIEW" },
-  { accountId: "XXXXXX9420", bank: "Federal Bank", linkedCases: ["C-2026-0417"], totalInflow: 460000, totalOutflow: 445000, risk: "LOW", status: "CLEARED" },
-  { accountId: "XXXXXX2357", bank: "Bandhan Bank", linkedCases: ["C-2026-0512", "C-2026-0628"], totalInflow: 1290000, totalOutflow: 1275000, risk: "HIGH", status: "ACTIVE" },
-  { accountId: "XXXXXX8842", bank: "HDFC Bank", linkedCases: ["C-2026-0417"], totalInflow: 4200000, totalOutflow: 3950000, risk: "CRITICAL", status: "FROZEN" },
-  { accountId: "XXXXXX3391", bank: "ICICI Bank", linkedCases: ["C-2026-0512", "C-2026-0417"], totalInflow: 1875000, totalOutflow: 1740000, risk: "HIGH", status: "FROZEN" },
-  { accountId: "XXXXXX7710", bank: "Paytm Payments Bank", linkedCases: ["C-2026-0417"], totalInflow: 2650000, totalOutflow: 2610000, risk: "HIGH", status: "UNDER_REVIEW" },
-  { accountId: "XXXXXX2058", bank: "Axis Bank", linkedCases: ["C-2026-0628"], totalInflow: 940000, totalOutflow: 880000, risk: "MEDIUM", status: "FROZEN" },
-  { accountId: "XXXXXX6124", bank: "Yes Bank", linkedCases: ["C-2026-0628", "C-2026-0512"], totalInflow: 1320000, totalOutflow: 1295000, risk: "MEDIUM", status: "ACTIVE" },
-  { accountId: "XXXXXX4967", bank: "Airtel Payments Bank", linkedCases: ["C-2026-0417"], totalInflow: 720000, totalOutflow: 705000, risk: "MEDIUM", status: "ACTIVE" },
-  { accountId: "XXXXXX1573", bank: "Kotak Mahindra Bank", linkedCases: ["C-2026-0512"], totalInflow: 560000, totalOutflow: 415000, risk: "LOW", status: "MONITORED" },
-  { accountId: "XXXXXX8305", bank: "Bank of Baroda", linkedCases: ["C-2026-0628"], totalInflow: 145000, totalOutflow: 138000, risk: "LOW", status: "CLEARED" },
-];
-
 export const alerts = [
   { id: "A-01", caseId: "C-2026-0417", message: "₹21L moved to mule within 7 min of debit", amount: 2100000, time: "2026-09-23 14:20", severity: "critical" },
   { id: "A-02", caseId: "C-2026-0512", message: "Frozen account received inbound credit (trap active)", amount: 150000, time: "2026-09-23 11:02", severity: "high" },

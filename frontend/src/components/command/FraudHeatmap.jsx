@@ -42,6 +42,7 @@ export default function FraudHeatmap() {
   const [error, setError] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mapRevision, setMapRevision] = useState(0);
+  const [selectedAtmId, setSelectedAtmId] = useState("");
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -262,6 +263,7 @@ export default function FraudHeatmap() {
       markersRef.current.push(marker);
     });
 
+
     if (points.length) {
       map.fitBounds(
         L.latLngBounds(points.map(([latitude, longitude]) => [latitude, longitude])).pad(0.08),
@@ -365,17 +367,30 @@ export default function FraudHeatmap() {
             />
           </div>
           <aside className={`overflow-auto border-t [scrollbar-width:none] lg:border-l lg:border-t-0 [&::-webkit-scrollbar]:hidden ${isFullscreen ? "max-h-none" : "max-h-[27.5rem]"}`}>
+            <div className="m-3 rounded-lg border bg-background p-4 shadow-sm">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Cases matching filter</div>
+              <div className="mt-1 text-4xl font-bold leading-none text-foreground">{filtered.length}</div>
+              <div className="mt-2 text-[11px] text-muted-foreground">
+                {city === "ALL" ? "All cities" : city} · {crimeType === "ALL" ? "All crime types" : crimeType} · {risk === "ALL" ? "All risk levels" : risk}
+              </div>
+            </div>
             <div className="m-3 flex items-center justify-between rounded-lg border bg-background p-4 shadow-sm">
-              <div><h3 className="text-sm font-semibold">ATM Ranking</h3><p className="text-[11px] text-muted-foreground">Highest risk first</p></div>
+              <div><h3 className="text-sm font-semibold">ATM Ranking</h3><p className="text-[11px] text-muted-foreground">Highest risk first · ATM risk level shown</p></div>
               <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-primary/10 px-2 text-xs font-bold text-primary">{rankedAtms.length}</span>
             </div>
             <div className="px-3 pb-3">
               {rankedAtms.length ? rankedAtms.map((atm, index) => (
-                <div className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-2 border-b py-3 last:border-0" key={atm.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAtmId(atm.id)}
+                  className={`grid w-full grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-2 border-b py-3 text-left last:border-0 hover:bg-muted/20 ${selectedAtmId === atm.id ? "bg-amber-50 ring-1 ring-inset ring-amber-300" : ""}`}
+                  key={atm.id}
+                  aria-label={`Select ${atm.id}`}
+                >
                   <span className="text-xs font-bold text-muted-foreground">#{index + 1}</span>
                   <div className="min-w-0"><strong className="block truncate text-xs">{atm.id}</strong><span className="block truncate text-[10px] text-muted-foreground">{atm.bank} · {atm.city}</span></div>
-                  <div className="text-right"><strong className="block text-sm">{atm.score.toFixed(0)}</strong><span className="text-[9px] font-bold uppercase text-muted-foreground">{atm.level}</span></div>
-                </div>
+                  <div className="text-right"><strong className="block text-sm">{atm.score.toFixed(0)}</strong><span className={`text-[9px] font-bold uppercase ${atm.level === "CRITICAL" ? "text-red-700" : atm.level === "HIGH" ? "text-orange-700" : atm.level === "MEDIUM" ? "text-amber-700" : "text-green-700"}`}>ATM risk: {atm.level}</span></div>
+                </button>
               )) : <div className="p-4 text-center text-xs text-muted-foreground">No ATMs match the selected filters.</div>}
             </div>
           </aside>
