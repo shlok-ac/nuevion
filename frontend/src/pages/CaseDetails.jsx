@@ -1,9 +1,11 @@
 import { Fragment } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Banknote, Download, MapPin, Scale, Share2, Snowflake } from "lucide-react";
+import { ArrowLeft, ArrowRight, Banknote, Check, Download, MapPin, Scale, Share2, Snowflake } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ACTION_STATUS, OPERATIONAL_ACTIONS, getActionStatusLabel } from "@/lib/caseActionStore";
+import { useCaseActions } from "@/hooks/useCaseActions";
 import { cases, formatINR, muleChains, suspects } from "@/lib/investigationData";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +22,16 @@ const statusTone = {
   frozen: "bg-blue-500/10 text-blue-600",
   resolved: "bg-emerald-500/10 text-emerald-600",
   closed: "bg-muted text-muted-foreground",
+};
+
+// Operational actions share the ATM Intelligence status treatment: primary while
+// pending, emerald once an action record exists.
+const operationalStatusTone = {
+  [ACTION_STATUS.pending]: "border-primary/20 bg-primary/5 text-primary",
+  [ACTION_STATUS.active]: "border-emerald-200 bg-emerald-500/10 text-emerald-600",
+  [ACTION_STATUS.prepared]: "border-emerald-200 bg-emerald-500/10 text-emerald-600",
+  [ACTION_STATUS.requested]: "border-emerald-200 bg-emerald-500/10 text-emerald-600",
+  [ACTION_STATUS.assigned]: "border-emerald-200 bg-emerald-500/10 text-emerald-600",
 };
 
 // Shared layout tokens. Every card on the page reuses these so headings, bodies
@@ -55,6 +67,25 @@ const formatActivity = (value) => {
   };
 };
 
+const formatEntryTime = (value) =>
+  new Date(value).toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+
+const formatEntryStamp = (value) =>
+  new Date(value).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
 function flattenChain(node, result = []) {
   if (!node) return result;
   result.push(node);
@@ -66,6 +97,10 @@ export default function CaseDetails() {
   const { caseId } = useParams();
   const navigate = useNavigate();
   const caseItem = cases.find((item) => item.id === caseId);
+
+  // Same persistent store the ATM Intelligence page writes to, so the operational
+  // action statuses and the activity log always reflect confirmed actions.
+  const { activities, getRecord } = useCaseActions({ caseId });
 
   if (!caseItem) {
     return (
@@ -171,11 +206,11 @@ export default function CaseDetails() {
       </Card>
 
       {/* ------------------------------------------- Investigation Timeline + Status */}
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,1fr)]">
-        <Card className="min-w-0">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,1fr)]">
+        <Card className="flex min-w-0 flex-col">
           <CardHeader className={cardHeaderClass}><CardTitle className={sectionTitleClass}>Investigation Timeline</CardTitle></CardHeader>
-          <CardContent className={cardBodyClass}>
-            <div className="grid grid-cols-[3rem_0.75rem_minmax(0,1fr)]">
+          <CardContent className={cn(cardBodyClass, "flex-1")}>
+            <div className="grid h-full auto-rows-fr grid-cols-[3rem_0.75rem_minmax(0,1fr)]">
               {timeline.map(([time, label], index) => (
                 <Fragment key={`${time}-${label}`}>
                   <TimelineRow time={time} label={label} isLast={index === timeline.length - 1} />
@@ -184,20 +219,73 @@ export default function CaseDetails() {
             </div>
           </CardContent>
         </Card>
-        <Card className="min-w-0">
-          <CardHeader className={cardHeaderClass}><CardTitle className={sectionTitleClass}>Case Status Information</CardTitle></CardHeader>
-          <CardContent className={cardBodyClass}>
-            <StatusRow label="Current Status">
-              <Badge className={cn(badgeSizingClass, "uppercase", statusTone[caseItem.status])}>{caseItem.status}</Badge>
-            </StatusRow>
-            <StatusRow label="Risk">
-              <Badge className={cn(badgeSizingClass, "uppercase", priorityTone[caseItem.priority])}>{caseItem.priority}</Badge>
-            </StatusRow>
-            <StatusRow label="Priority">Immediate Attention</StatusRow>
-            <StatusRow label="Last Action">Freeze request initiated</StatusRow>
-          </CardContent>
-        </Card>
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card className="min-w-0">
+            <CardHeader className={cardHeaderClass}><CardTitle className={sectionTitleClass}>Case Status Information</CardTitle></CardHeader>
+            <CardContent className={cardBodyClass}>
+              <StatusRow label="Current Status">
+                <Badge className={cn(badgeSizingClass, "uppercase", statusTone[caseItem.status])}>{caseItem.status}</Badge>
+              </StatusRow>
+              <StatusRow label="Risk">
+                <Badge className={cn(badgeSizingClass, "uppercase", priorityTone[caseItem.priority])}>{caseItem.priority}</Badge>
+              </StatusRow>
+              <StatusRow label="Priority">Immediate Attention</StatusRow>
+              <StatusRow label="Last Action">Freeze request initiated</StatusRow>
+            </CardContent>
+          </Card>
+          <Card className="min-w-0">
+            <CardHeader className={cardHeaderClass}><CardTitle className={sectionTitleClass}>Operational Actions</CardTitle></CardHeader>
+            <CardContent className={cardBodyClass}>
+              <ul className="flex flex-col overflow-hidden rounded-md border border-border/70">
+                {OPERATIONAL_ACTIONS.map(({ actionType, label }) => {
+                  const record = getRecord(actionType);
+                  const status = record?.status ?? ACTION_STATUS.pending;
+                  return (
+                    <li key={actionType} className="flex min-h-9 items-center justify-between gap-3 border-b border-border/60 px-3 text-xs last:border-b-0">
+                      <span className="min-w-0 truncate font-medium text-foreground">
+                        {label}
+                        {record ? <span className="ml-1.5 font-mono text-[11px] font-normal text-muted-foreground">{record.atmId}</span> : null}
+                      </span>
+                      <Badge
+                        className={cn(badgeSizingClass, "gap-0.5 uppercase", operationalStatusTone[status] ?? operationalStatusTone[ACTION_STATUS.pending])}
+                        title={record ? record.details : "No action initiated yet"}
+                      >
+                        {record ? <Check className="h-3 w-3" /> : null}
+                        {getActionStatusLabel(status)}
+                      </Badge>
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* ------------------------------------------------------------- Activity Log */}
+      <Card>
+        <CardHeader className={cn(cardHeaderClass, "flex-row items-center justify-between space-y-0")}>
+          <CardTitle className={sectionTitleClass}>Activity Log</CardTitle>
+          <Badge className="border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            {activities.length} {activities.length === 1 ? "entry" : "entries"}
+          </Badge>
+        </CardHeader>
+        <CardContent className={cardBodyClass}>
+          {activities.length ? (
+            <div className="grid grid-cols-[auto_0.75rem_minmax(0,1fr)_auto]">
+              {activities.map((entry, index) => (
+                <Fragment key={entry.id}>
+                  <ActivityRow entry={entry} isLast={index === activities.length - 1} />
+                </Fragment>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-md border border-dashed border-border px-3 py-2.5 text-xs text-muted-foreground">
+              No operational actions recorded for this case yet. Actions confirmed on the ATM Intelligence page appear here.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* --------------------------------------------------------- Linked Entities */}
       <Card>
@@ -224,13 +312,36 @@ function HeaderMeta({ label, children }) {
 function TimelineRow({ time, label, isLast }) {
   return (
     <>
-      <span className="flex h-9 items-center pr-3 font-mono text-xs font-semibold tabular-nums text-muted-foreground">{time}</span>
-      <span className="relative flex h-9 items-center justify-center">
-        {/* Hairline is exactly one row tall, so it runs centre-to-centre with no gaps. */}
-        {!isLast && <span aria-hidden="true" className="absolute left-1/2 top-1/2 h-9 w-px -translate-x-1/2 bg-border" />}
+      <span className="flex h-full min-h-9 items-center pr-3 font-mono text-xs font-semibold tabular-nums text-muted-foreground">{time}</span>
+      <span className="relative flex h-full min-h-9 items-center justify-center">
+        {/* Hairline spans the whole row, so it runs centre-to-centre with no gaps
+            however far the timeline is stretched to match the cards beside it. */}
+        {!isLast && <span aria-hidden="true" className="absolute left-1/2 top-1/2 h-full w-px -translate-x-1/2 bg-border" />}
         <span aria-hidden="true" className="relative h-2 w-2 rounded-full border-2 border-background bg-muted-foreground/70" />
       </span>
-      <span className="flex h-9 items-center pl-3 text-sm">{label}</span>
+      <span className="flex h-full min-h-9 items-center pl-3 text-sm">{label}</span>
+    </>
+  );
+}
+
+function ActivityRow({ entry, isLast }) {
+  return (
+    <>
+      <span
+        className="flex h-9 items-center pr-3 font-mono text-xs font-semibold tabular-nums text-muted-foreground"
+        title={formatEntryStamp(entry.createdAt)}
+      >
+        {formatEntryTime(entry.createdAt)}
+      </span>
+      <span className="relative flex h-9 items-center justify-center">
+        {!isLast && <span aria-hidden="true" className="absolute left-1/2 top-1/2 h-9 w-px -translate-x-1/2 bg-border" />}
+        <span aria-hidden="true" className="relative h-2 w-2 rounded-full border-2 border-background bg-emerald-600/70" />
+      </span>
+      <span className="flex h-9 min-w-0 items-center gap-2 pl-3 text-sm">
+        <span className="min-w-0 truncate text-foreground">{entry.message}</span>
+        {entry.atmId ? <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{entry.atmId}</span> : null}
+      </span>
+      <span className="flex h-9 shrink-0 items-center pl-3 text-xs text-muted-foreground">{entry.performedBy}</span>
     </>
   );
 }
