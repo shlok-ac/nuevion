@@ -1,88 +1,46 @@
-import React, { useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Toaster } from "@/components/ui/toaster";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 
-import Sidebar from './components/layout/Sidebar'
-import Header from './components/layout/Header'
+import ScrollToTop from "./components/ScrollToTop";
 
-import Dashboard from './pages/Dashboard/Dashboard'
-import ActiveCases from './pages/ActiveCases/ActiveCases'
-import ATMRisk from './pages/ATMRisk/ATMRisk'
-import MoneyTrail from './pages/MoneyTrail/MoneyTrail'
-import Alerts from './pages/Alerts/Alerts'
-import SuspectDatabase from './pages/SuspectDatabase/SuspectDatabase'
-import Reports from './pages/Reports/Reports'
+import CommandLayout from "@/components/command/CommandLayout";
+import CommandDashboard from "@/pages/CommandDashboard";
+import CaseManagement from "@/pages/CaseManagement";
+import CaseDetails from "@/pages/CaseDetails";
+import MoneyTrail from "@/pages/MoneyTrail";
+import LegalWindow from "@/pages/LegalWindow";
+import FreezeSimulation from "@/pages/FreezeSimulation";
+import SuspectDatabase from "@/pages/SuspectDatabase";
+import Export from "@/pages/Export";
+import Analytics from "@/pages/Analytics";
+import ATMIntelligence from "@/pages/ATMIntelligence";
 
-import CitizenPortal from './citizen/CitizenPortal'
-
-export default function App() {
-  const location = useLocation()
-
-  const [activePage, setActivePage] = useState('dashboard')
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-
-  const citizenPaths = [
-    '/',
-    '/report',
-    '/track',
-    '/faq',
-    '/login',
-  ]
-
-  const isComplaintConfirmation =
-    /^\/complaint\/[^/]+\/confirmation$/.test(location.pathname)
-
-  const isCitizenRoute =
-    citizenPaths.includes(location.pathname) || isComplaintConfirmation
-
-  if (isCitizenRoute) {
-    return <CitizenPortal />
-  }
-
-  const renderPage = () => {
-    switch (activePage) {
-      case 'dashboard':
-        return <Dashboard />
-      case 'active-cases':
-        return <ActiveCases />
-      case 'atm-risk':
-        return <ATMRisk />
-      case 'money-trail':
-        return <MoneyTrail />
-      case 'alerts':
-        return <Alerts />
-      case 'suspect-database':
-        return <SuspectDatabase />
-      case 'reports':
-        return <Reports />
-      default:
-        return <Dashboard />
-    }
-  }
-
+function App() {
   return (
-    <div className="app">
-      <Sidebar
-        activePage={activePage}
-        onNavigate={(page) => {
-          setActivePage(page)
-          setIsSidebarOpen(false)
-        }}
-        isOpen={isSidebarOpen}
-      />
+    <Router>
+      <ScrollToTop />
 
-      {isSidebarOpen && (
-        <div
-          className="sidebar-overlay"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+      <Routes>
+        <Route element={<CommandLayout />}>
+          <Route path="/" element={<CommandDashboard />} />
+          <Route path="/case-management" element={<CaseManagement />} />
+          <Route path="/cases/:caseId" element={<CaseDetails />} />
+          <Route path="/atm-intelligence" element={<ATMIntelligence />} />
+          <Route path="/money-trail" element={<MoneyTrail />} />
+          <Route path="/legal" element={<LegalWindow />} />
+          <Route path="/freeze-sim" element={<FreezeSimulation />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/suspects" element={<SuspectDatabase />} />
+          <Route path="/export" element={<Export />} />
+        </Route>
 
-      <div className="app__main">
-        <Header
-          onMenuClick={() => setIsSidebarOpen((open) => !open)}
-        />
-        {renderPage()}
-      </div>
-    </div>
-  )
+        {/* Send unknown URLs back to dashboard */}
+        <Route path="*" element={<CommandDashboard />} />
+      </Routes>
+
+      <Toaster />
+    </Router>
+  );
 }
+
+export default App;
