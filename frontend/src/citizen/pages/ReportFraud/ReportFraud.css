@@ -1,0 +1,413 @@
+.report-page {
+  padding: 48px 0 70px;
+}
+
+.report-heading {
+  max-width: 800px;
+  margin-bottom: 35px;
+}
+
+.report-kicker {
+  display: inline-block;
+  border-left: 4px solid #ff9933;
+  background: #e9eef5;
+  color: #0a3161;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.report-heading h1 {
+  margin: 20px 0 12px;
+  color: #0a3161;
+  font-size: 42px;
+  line-height: 1.15;
+}
+
+.report-heading p {
+  color: #5b6472;
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+/* Progress */
+
+.report-progress {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 25px;
+}
+
+.progress-step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #8a929e;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 12px;
+  border-top: 3px solid #dce2ea;
+}
+
+.progress-step.active {
+  color: #0a3161;
+  border-top-color: #ff9933;
+}
+
+.progress-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #dce2ea;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.progress-step.active .progress-circle {
+  background: #0a3161;
+  color: white;
+  border-color: #0a3161;
+}
+
+/* Form card */
+
+.report-card {
+  background: white;
+  border: 1px solid #dce2ea;
+  box-shadow: 0 8px 25px rgba(6, 35, 71, 0.08);
+}
+
+.report-card section {
+  padding: 38px;
+}
+
+.form-section-heading {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  padding-bottom: 25px;
+  margin-bottom: 30px;
+  border-bottom: 1px solid #dce2ea;
+}
+
+.form-section-heading > span {
+  color: #ff9933;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.form-section-heading h2 {
+  margin: 0 0 6px;
+  color: #0a3161;
+  font-size: 25px;
+}
+
+.form-section-heading p {
+  margin: 0;
+  color: #5b6472;
+  line-height: 1.5;
+}
+
+/* Fields */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-field label {
+  color: #1c2230;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.form-field label span {
+  color: #c0392b;
+}
+
+.form-field input,
+.form-field textarea,
+.form-field select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #cbd3de;
+  border-radius: 3px;
+  padding: 13px 14px;
+  font-family: inherit;
+  font-size: 15px;
+  color: #1c2230;
+  background: white;
+  outline: none;
+}
+
+.form-field input:focus,
+.form-field textarea:focus,
+.form-field select:focus {
+  border-color: #0a3161;
+  box-shadow: 0 0 0 3px rgba(10, 49, 97, 0.12);
+}
+
+.form-field textarea {
+  resize: vertical;
+}
+
+.form-field small {
+  color: #6b7480;
+  font-size: 12px;
+}
+
+/* Upload */
+
+.upload-box {
+  border: 2px dashed #9eabb9;
+  background: #f7f9fb;
+  padding: 40px 25px;
+  text-align: center;
+  border-radius: 4px;
+  transition: 0.2s;
+}
+
+.upload-box:hover {
+  border-color: #0a3161;
+  background: #f1f5f9;
+}
+
+.upload-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: #0a3161;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: bold;
+}
+
+.upload-box h3 {
+  margin: 0 0 8px;
+  color: #0a3161;
+  font-size: 18px;
+}
+
+.upload-box p {
+  margin: 5px 0;
+  color: #5b6472;
+  font-size: 14px;
+}
+
+.upload-box .upload-format {
+  font-size: 12px;
+  margin: 10px 0 20px;
+}
+
+.upload-button {
+  display: inline-block;
+  background: #0a3161;
+  color: white;
+  padding: 13px 25px;
+  border-radius: 3px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.upload-button:hover {
+  background: #062347;
+}
+
+.upload-button input {
+  display: none;
+}
+
+.upload-help {
+  display: block;
+  margin-top: 13px;
+  color: #6b7480;
+  font-size: 12px;
+}
+
+.file-list {
+  margin-top: 18px;
+  padding: 15px;
+  background: #f3f5f8;
+  border: 1px solid #dce2ea;
+}
+
+.file-list h4 {
+  margin: 0 0 10px;
+  color: #0a3161;
+  font-size: 14px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 12px;
+  margin-top: 8px;
+  background: white;
+  border-left: 3px solid #138808;
+}
+
+.file-item > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.file-item strong {
+  color: #1c2230;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.file-item small {
+  color: #6b7480;
+  font-size: 11px;
+}
+
+.remove-file {
+  flex-shrink: 0;
+  border: 1px solid #c0392b;
+  background: white;
+  color: #c0392b;
+  padding: 7px 11px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.remove-file:hover {
+  background: #c0392b;
+  color: white;
+}
+
+
+/* Notice */
+
+.important-notice {
+  margin-top: 28px;
+  padding: 18px;
+  background: #fff7ed;
+  border-left: 4px solid #ff9933;
+}
+
+.important-notice strong {
+  color: #0a3161;
+}
+
+.important-notice p {
+  margin: 7px 0 0;
+  color: #5b6472;
+  line-height: 1.5;
+}
+
+/* Actions */
+
+.form-actions {
+  border-top: 1px solid #dce2ea;
+  padding: 22px 38px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.back-button,
+.next-button,
+.submit-button {
+  padding: 13px 24px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.back-button {
+  border: 1px solid #0a3161;
+  background: white;
+  color: #0a3161;
+}
+
+.next-button,
+.submit-button {
+  border: 1px solid #0a3161;
+  background: #0a3161;
+  color: white;
+}
+
+.next-button:hover,
+.submit-button:hover {
+  background: #062347;
+}
+
+.back-button:hover {
+  background: #f2f5f8;
+}
+
+.report-security-note {
+  margin-top: 20px;
+  padding: 16px;
+  background: #eef6f0;
+  border-left: 4px solid #138808;
+  color: #43504a;
+  font-size: 13px;
+}
+
+/* Mobile */
+
+@media (max-width: 700px) {
+  .report-page {
+    padding: 30px 0 50px;
+  }
+
+  .report-heading h1 {
+    font-size: 32px;
+  }
+
+  .report-progress {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .progress-step {
+    font-size: 11px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .full-width {
+    grid-column: auto;
+  }
+
+  .report-card section {
+    padding: 24px 18px;
+  }
+
+  .form-actions {
+    padding: 18px;
+  }
+}
