@@ -351,6 +351,7 @@ export default function ATMIntelligence() {
       icon: Landmark,
       tone: "text-sky-600",
       accent: "hover:border-sky-300 hover:shadow-[0_16px_32px_-16px_rgb(2_132_199/0.22)]",
+      divider: "bg-sky-500/30",
       rows: [
         ["Victim", activeCase.victim],
         ["Fraud type", activeCase.fraudType],
@@ -363,6 +364,7 @@ export default function ATMIntelligence() {
       icon: Banknote,
       tone: "text-emerald-600",
       accent: "hover:border-emerald-300 hover:shadow-[0_16px_32px_-16px_rgb(5_150_105/0.22)]",
+      divider: "bg-emerald-500/30",
       rows: [
         ["Bank", activeCase.bank],
         ["Account", activeCase.account],
@@ -375,6 +377,7 @@ export default function ATMIntelligence() {
       icon: Users,
       tone: "text-violet-600",
       accent: "hover:border-violet-300 hover:shadow-[0_16px_32px_-16px_rgb(124_58_237/0.22)]",
+      divider: "bg-violet-500/30",
       rows: [
         ["Linked suspects", `${linkedSuspects.length}`],
         ["Mule layers", `${maxLayer + 1}`],
@@ -422,7 +425,7 @@ export default function ATMIntelligence() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        {summaryCards.map(({ title, icon: Icon, tone, accent, rows }) => (
+        {summaryCards.map(({ title, icon: Icon, tone, accent, divider, rows }) => (
           <Card
             key={title}
             className={cn(
@@ -431,10 +434,11 @@ export default function ATMIntelligence() {
             )}
           >
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium text-foreground">{title}</CardTitle>
-              <Icon className={cn("h-4 w-4 shrink-0 transition-transform duration-300 group-hover:scale-110", tone)} />
+              <CardTitle className="text-base font-medium text-foreground">{title}</CardTitle>
+              <Icon className={cn("h-5 w-5 shrink-0 transition-transform duration-300 group-hover:scale-110", tone)} />
             </CardHeader>
-            <CardContent className="space-y-2.5 text-sm">
+            <div aria-hidden="true" className={cn("mx-6 h-px", divider)} />
+            <CardContent className="space-y-2.5 pt-4 text-sm">
               {rows.map(([label, value]) => (
                 <div key={label} className="flex items-start justify-between gap-3">
                   <span className="text-muted-foreground">{label}</span>
@@ -449,10 +453,10 @@ export default function ATMIntelligence() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_340px]">
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <div className="flex items-center gap-2 text-base font-medium text-foreground">
               Cash-out region map
             </div>
-            <Badge className="border border-primary/20 bg-primary/5 text-primary">
+            <Badge className="border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
               {selectedRegion.confidence.toFixed(1)}% confidence
             </Badge>
           </div>
@@ -464,7 +468,7 @@ export default function ATMIntelligence() {
 
         <aside className="rounded-xl border bg-card p-3 shadow-sm">
           <div className="mb-2 border-b pb-2">
-            <h3 className="text-sm font-semibold text-foreground">Regions</h3>
+            <h3 className="text-base font-semibold text-foreground">Regions</h3>
           </div>
           <div className="max-h-[340px] space-y-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {regionScores.map((region) => (
@@ -513,12 +517,12 @@ export default function ATMIntelligence() {
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-sm font-medium text-foreground">Ranked ATM watchlist</CardTitle>
+            <CardTitle className="text-base font-medium text-foreground">Ranked ATM watchlist</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               Predicted cash-out locations for {selectedRegion.name}
             </p>
           </div>
-          <Badge className="border border-primary/20 bg-primary/5 text-primary">
+          <Badge className="border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
             {selectedAtms.length} ranked ATMs
           </Badge>
         </CardHeader>
@@ -571,7 +575,7 @@ export default function ATMIntelligence() {
         <Card className="overflow-hidden">
           <CardHeader className="flex-row items-start justify-between gap-4 border-b bg-muted/20">
             <div>
-              <CardTitle className="text-sm font-medium text-foreground">ATM intelligence details</CardTitle>
+              <CardTitle className="text-base font-medium text-foreground">ATM intelligence details</CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">
                 Detailed model output for {atmDetails.atm} in {selectedRegion.name}
               </p>
@@ -649,10 +653,10 @@ export default function ATMIntelligence() {
           <Card className="h-full">
             <CardHeader className="flex-row items-center justify-between space-y-0 border-b bg-muted/20">
               <div>
-                <CardTitle className="text-sm font-medium text-foreground">Withdrawal prediction report</CardTitle>
+                <CardTitle className="text-base font-medium text-foreground">Withdrawal prediction report</CardTitle>
                 <p className="mt-1 text-xs text-muted-foreground">Current prediction for {selectedRegion.name}</p>
               </div>
-              <ClipboardCopy className="h-4 w-4 text-muted-foreground" />
+              <ClipboardCopy className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent className="space-y-4 p-5">
               <div>
@@ -690,7 +694,7 @@ export default function ATMIntelligence() {
           <Card className="flex h-full flex-col">
             <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 border-b bg-muted/20">
               <div className="min-w-0">
-                <CardTitle className="text-sm font-medium text-foreground">Recommended Actions</CardTitle>
+                <CardTitle className="text-base font-medium text-foreground">Recommended Actions</CardTitle>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Suggested operational responses based on the verified ATM risk.
                 </p>
@@ -821,8 +825,8 @@ export default function ATMIntelligence() {
             className="group h-full transition-all duration-300 ease-out hover:-translate-y-1 hover:border-emerald-300 hover:shadow-[0_16px_32px_-16px_rgb(5_150_105/0.22)]"
           >
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <BrainCircuit className="h-4 w-4 shrink-0 text-primary transition-transform duration-300 group-hover:scale-110" />
+              <CardTitle className="flex items-center gap-2.5 text-base font-medium text-foreground">
+                <BrainCircuit className="h-5 w-5 shrink-0 text-primary transition-transform duration-300 group-hover:scale-110" />
                 {name}
               </CardTitle>
               <span className="text-lg font-semibold text-foreground">{score}%</span>
@@ -862,8 +866,8 @@ export default function ATMIntelligence() {
             </div>
 
             <div className="rounded-lg border bg-muted/30 p-3">
-              <div className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
-                <TrendingUp className="h-4 w-4 text-primary" />
+              <div className="mb-2 flex items-center gap-2.5 text-base font-medium text-foreground">
+                <TrendingUp className="h-5 w-5 text-primary" />
                 Why this region was selected
               </div>
               <ul className="space-y-2 text-sm text-muted-foreground">
