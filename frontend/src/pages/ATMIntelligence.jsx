@@ -638,10 +638,10 @@ export default function ATMIntelligence() {
                   <div
                     key={action.id}
                     className={cn(
-                      "group flex flex-col rounded-lg border bg-background transition-all focus-within:border-primary/40",
+                      "group flex flex-col rounded-lg border transition-all focus-within:border-primary/40",
                       isInitiated
                         ? "border-emerald-200 bg-emerald-500/[0.06]"
-                        : "border-border hover:border-primary/25 hover:shadow-sm"
+                        : "border-border bg-muted/20 hover:border-primary/30 hover:bg-muted/30 hover:shadow-sm"
                     )}
                   >
                     <div className="flex items-start gap-2.5 p-3.5">
@@ -650,7 +650,7 @@ export default function ATMIntelligence() {
                           "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border",
                           isInitiated
                             ? "border-emerald-200 bg-emerald-500/10 text-emerald-600"
-                            : "border-border bg-muted/40 text-primary"
+                            : "border-border bg-background text-primary"
                         )}
                       >
                         <Icon className="h-4 w-4" />
@@ -663,7 +663,7 @@ export default function ATMIntelligence() {
                               "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
                               isInitiated
                                 ? "border-emerald-200 bg-emerald-500/10 text-emerald-700"
-                                : "border-border bg-muted/40 text-muted-foreground"
+                                : "border-primary/20 bg-primary/5 text-primary"
                             )}
                           >
                             {isInitiated ? "Initiated" : "Pending"}
@@ -675,28 +675,28 @@ export default function ATMIntelligence() {
                       </div>
                     </div>
 
-                    <div className="flex flex-1 flex-col justify-center px-3.5 pb-3.5">
+                    <div className="flex flex-1 flex-col justify-center gap-2 px-3.5 pb-3.5">
                       <div className="flex flex-wrap gap-1.5">
                         {chips.map((chip) => (
                           <span
                             key={chip}
-                            className="rounded-md border bg-muted/40 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                            className="rounded-md border border-border/60 bg-background/70 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
                           >
                             {chip}
                           </span>
                         ))}
                       </div>
-                    </div>
-
-                    <div className="border-t p-2.5">
-                      <div className="mb-2 flex min-h-[1.75rem] items-start gap-1.5 px-1" aria-live="polite">
+                      <div className="flex items-start gap-1.5 text-[11px] leading-snug" aria-live="polite">
                         {isInitiated ? (
                           <>
                             <CheckCircle2 className="mt-px h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                            <p className="text-[11px] leading-snug text-emerald-700">{action.confirmation}</p>
+                            <p className="text-emerald-700">{action.confirmation}</p>
                           </>
                         ) : null}
                       </div>
+                    </div>
+
+                    <div className="border-t px-3.5 py-3">
                       <Button
                         type="button"
                         size="sm"
@@ -704,17 +704,17 @@ export default function ATMIntelligence() {
                         disabled={isInitiated}
                         onClick={() => handleRecommendedAction(action.id)}
                         className={cn(
-                          "w-full justify-between px-3 transition-colors",
+                          "w-full justify-between transition-colors",
                           isInitiated
                             ? "border-emerald-200 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-700 disabled:opacity-100"
-                            : "group-hover:border-primary/30 group-hover:bg-accent group-hover:text-accent-foreground"
+                            : "border-sky-200 bg-sky-500/[0.08] text-sky-800 hover:border-sky-300 hover:bg-sky-500/[0.14] hover:text-sky-800 group-hover:border-sky-300 group-hover:bg-sky-500/[0.14]"
                         )}
                       >
                         {isInitiated ? action.doneLabel : action.actionLabel}
                         {isInitiated ? (
                           <CheckCircle2 className="h-4 w-4" />
                         ) : (
-                          <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" />
+                          <ArrowRight className="h-4 w-4 opacity-60 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:opacity-100" />
                         )}
                       </Button>
                     </div>
