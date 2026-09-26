@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, FolderOpen } from "lucide-react";
 import { cases, alerts, formatINR } from "@/lib/investigationData";
 import { cn } from "@/lib/utils";
 import FraudHeatmap from "@/components/command/FraudHeatmap";
@@ -26,7 +26,9 @@ export default function CaseQueue() {
     <div className="grid gap-x-4 gap-y-6 lg:grid-cols-2">
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-          <CardTitle className="text-base">Active Cases</CardTitle>
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <FolderOpen className="h-5 w-5 shrink-0 text-emerald-500" /> Active Cases
+          </CardTitle>
           <div className="flex shrink-0 items-center gap-2">
             <span className="whitespace-nowrap text-xs font-semibold text-muted-foreground">sorted by amount</span>
             <Badge variant="secondary" className="shrink-0 px-3 py-1 text-sm">{sortedCases.length}</Badge>
