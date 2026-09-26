@@ -1,0 +1,237 @@
+.confirmation-page {
+  padding: 55px 0 80px;
+}
+
+.confirmation-card {
+  max-width: 900px;
+  margin: 0 auto;
+  background: white;
+  border: 1px solid #dce2ea;
+  box-shadow: 0 10px 35px rgba(6, 35, 71, 0.09);
+  padding: 45px;
+  text-align: center;
+}
+
+.success-icon {
+  width: 70px;
+  height: 70px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: #e8f5ec;
+  border: 3px solid #138808;
+  color: #138808;
+  font-size: 40px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirmation-kicker {
+  color: #138808;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}
+
+.confirmation-card h1 {
+  color: #0a3161;
+  font-size: 34px;
+  margin: 14px 0 10px;
+}
+
+.confirmation-message {
+  max-width: 650px;
+  margin: 0 auto 28px;
+  color: #5b6472;
+  line-height: 1.7;
+}
+
+.complaint-number-box {
+  background: #f3f5f8;
+  border: 1px solid #dce2ea;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.complaint-number-box span {
+  display: block;
+  color: #5b6472;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin-bottom: 7px;
+}
+
+.complaint-number-box strong {
+  color: #0a3161;
+  font-size: 24px;
+}
+
+.status-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  text-align: left;
+  padding: 18px;
+  background: #eef6f0;
+  border-left: 4px solid #138808;
+  margin-bottom: 30px;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  background: #138808;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.status-box strong {
+  color: #1e8449;
+}
+
+.status-box p {
+  margin: 4px 0 0;
+  color: #5b6472;
+  font-size: 13px;
+}
+
+.confirmation-summary {
+  text-align: left;
+  border-top: 1px solid #dce2ea;
+  padding-top: 25px;
+}
+
+.confirmation-summary h2 {
+  color: #0a3161;
+  font-size: 21px;
+  margin-bottom: 18px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  border: 1px solid #dce2ea;
+}
+
+.summary-grid div {
+  padding: 15px;
+  border-bottom: 1px solid #dce2ea;
+}
+
+.summary-grid div:nth-child(odd) {
+  border-right: 1px solid #dce2ea;
+}
+
+.summary-grid span {
+  display: block;
+  color: #6b7480;
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+
+.summary-grid strong {
+  color: #1c2230;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.confirmation-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 30px 0;
+}
+
+.download-pdf-button,
+.track-button {
+  padding: 13px 22px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.download-pdf-button {
+  background: #0a3161;
+  border: 1px solid #0a3161;
+  color: white;
+}
+
+.download-pdf-button:hover {
+  background: #062347;
+}
+
+.track-button {
+  background: white;
+  border: 1px solid #0a3161;
+  color: #0a3161;
+}
+
+.track-button:hover {
+  background: #f3f5f8;
+}
+
+.confirmation-help {
+  padding: 18px;
+  background: #fff7ed;
+  border-left: 4px solid #ff9933;
+  text-align: left;
+  margin-bottom: 25px;
+}
+
+.confirmation-help strong {
+  color: #0a3161;
+}
+
+.confirmation-help p {
+  color: #5b6472;
+  margin: 6px 0 0;
+}
+
+.back-home {
+  color: #0a3161;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.back-home:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 700px) {
+  .confirmation-page {
+    padding: 30px 0 50px;
+  }
+
+  .confirmation-card {
+    padding: 28px 18px;
+  }
+
+  .confirmation-card h1 {
+    font-size: 27px;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-grid div:nth-child(odd) {
+    border-right: none;
+  }
+
+  .confirmation-actions {
+    flex-direction: column;
+  }
+
+  .download-pdf-button,
+  .track-button {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+  }
+}
