@@ -74,7 +74,7 @@ export default function LegalWindow() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Legal Window — §106 BNSS Freeze Notice"
-        description="One-click generation of the freeze notice addressed to bank nodal officers. Print or export to PDF."
+        description="One-click generation of the freeze notice addressed to bank nodal officers."
       />
 
       <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
@@ -108,6 +108,7 @@ export default function LegalWindow() {
                 <Download className="h-4 w-4" /> PDF
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">Print or export to PDF.</p>
           </CardContent>
         </Card>
 

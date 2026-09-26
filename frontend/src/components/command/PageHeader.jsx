@@ -13,9 +13,13 @@ import { cn } from "@/lib/utils";
  *     it — the rest of the UI is deliberately dense (14px card titles, 13px
  *     section labels, 11px field labels) and a `text-xl` page title outweighed
  *     every data value on the page,
- *   - a muted description seated one step below it, both `text-balance`d so a
- *     long subtitle breaks into two even lines instead of running full measure
- *     and orphaning its last two or three words on a line of their own,
+ *   - a muted description seated one step below it, `max-w-4xl` so even the
+ *     longest one in the app (ATM Intelligence, ~120 characters) stays on a single
+ *     line — `max-w-3xl` left Money Trail clearing the cap by ~4%, which meant a
+ *     different font or platform could tip it onto a second line and drop this
+ *     page's rule out of line with the others. Both are also `text-balance`d so a
+ *     narrow viewport still breaks into two even lines rather than orphaning the
+ *     last two or three words,
  *   - optional page actions (`actions`) centred against the text block on the
  *     trailing edge — a two-line title block is taller than a typical 36–40px
  *     control, so top-aligning the control leaves a dead gap under it and makes
@@ -37,7 +41,7 @@ export default function PageHeader({ title, description, actions, className }) {
       <div className="min-w-0">
         <h1 className="text-balance text-lg font-semibold leading-tight tracking-tight">{title}</h1>
         {description && (
-          <p className="mt-1 max-w-3xl text-balance text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-1 max-w-4xl text-balance text-sm leading-relaxed text-muted-foreground">
             {description}
           </p>
         )}

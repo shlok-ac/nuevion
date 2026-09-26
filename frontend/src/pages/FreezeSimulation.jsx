@@ -88,7 +88,7 @@ export default function FreezeSimulation() {
               key={m.value}
               onClick={() => setMode(m.value)}
               className={cn(
-                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium",
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                 mode === m.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
               )}
             >
