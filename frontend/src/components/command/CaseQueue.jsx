@@ -26,8 +26,11 @@ export default function CaseQueue() {
     <div className="grid gap-x-4 gap-y-6 lg:grid-cols-2">
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-          <CardTitle className="text-base">Active Cases · sorted by amount</CardTitle>
-          <Badge variant="secondary" className="px-3 py-1 text-sm">{sortedCases.length}</Badge>
+          <CardTitle className="text-base">Active Cases</CardTitle>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="whitespace-nowrap text-xs font-semibold text-muted-foreground">sorted by amount</span>
+            <Badge variant="secondary" className="shrink-0 px-3 py-1 text-sm">{sortedCases.length}</Badge>
+          </div>
         </CardHeader>
         <div aria-hidden="true" className="h-px bg-emerald-500/30" />
         <CardContent className="space-y-2 pt-4">
@@ -58,9 +61,12 @@ export default function CaseQueue() {
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="flex items-center gap-2.5 text-base">
-            <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" /> Priority Alerts · sorted by time
+            <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" /> Priority Alerts
           </CardTitle>
-          <Badge variant="secondary" className="px-3 py-1 text-sm">{sortedAlerts.length}</Badge>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="whitespace-nowrap text-xs font-semibold text-muted-foreground">sorted by time</span>
+            <Badge variant="secondary" className="shrink-0 px-3 py-1 text-sm">{sortedAlerts.length}</Badge>
+          </div>
         </CardHeader>
         <div aria-hidden="true" className="h-px bg-red-500/30" />
         <CardContent className="space-y-2 pt-4">
