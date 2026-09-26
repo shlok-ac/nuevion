@@ -76,6 +76,11 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
+      {!isCollapsed && (
+        <p className="mt-3 px-6 pb-4 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+          Prototype
+        </p>
+      )}
       <div className="group/edge absolute inset-y-0 right-0 z-10 w-3">
         <button
           type="button"
