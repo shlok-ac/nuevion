@@ -17,7 +17,7 @@ export default function CommandDashboard() {
             <span aria-hidden="true" className="w-4 shrink-0">●</span>
             Data systems operational
           </p>
-          <p className="mt-1.5 pl-6 text-muted-foreground">Last sync: 22:34:12</p>
+          <p className="mt-1 pl-6 text-muted-foreground">Last sync: 22:34:12</p>
           <div className="mt-3 grid gap-2 text-foreground sm:grid-cols-2 xl:grid-cols-4">
             {["NCRP", "Bank feeds", "Transaction engine", "ML model"].map((system) => (
               <div
@@ -52,8 +52,8 @@ export default function CommandDashboard() {
             <Activity className="h-5 w-5 shrink-0" /> Live activity feed
           </CardTitle>
         </CardHeader>
-        <div aria-hidden="true" className="h-px bg-blue-500/30" />
-        <CardContent className="space-y-2 pt-4 text-sm">
+        <div aria-hidden="true" className="mx-6 h-px bg-blue-500/30" />
+        <CardContent className="space-y-2 pt-5 text-sm">
           {alerts.map((a) => (
             <div key={a.id} className="flex items-center justify-between border-b pb-2 last:border-0">
               <span>
