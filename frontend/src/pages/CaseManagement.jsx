@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import PageHeader from "@/components/command/PageHeader";
 import { cases, formatINR } from "@/lib/investigationData";
 import { ArrowRight, CalendarDays, Check, ChevronDown, Clock3, ClipboardList, RotateCcw, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -237,13 +238,8 @@ export default function CaseManagement() {
   };
 
   return (
-    <div className="space-y-4 p-6">
-      <div>
-        <h2 className="text-lg font-semibold">Case Management</h2>
-        <p className="text-sm text-muted-foreground">
-          Manage and review investigation cases.
-        </p>
-      </div>
+    <div className="space-y-6 p-6">
+      <PageHeader title="Case Management" description="Manage and review investigation cases." />
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Find cases</CardTitle>
