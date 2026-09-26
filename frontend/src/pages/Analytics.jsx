@@ -267,14 +267,14 @@ function CaseAnalytics() {
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-        <Card className="bg-primary text-primary-foreground">
+        <Card className="bg-emerald-50/40">
           <CardHeader className="px-5 py-4">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium"><TrendingUp className="h-4 w-4" /> Key Insights</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium text-emerald-950"><TrendingUp className="h-4 w-4" /> Key Insights</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 px-5 pb-5">
             {insights.map((insight, index) => (
-              <div key={insight} className="flex gap-3 text-xs leading-relaxed text-primary-foreground/80">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-foreground/15 text-[10px] text-primary-foreground">{index + 1}</span>
+              <div key={insight} className="flex gap-3 text-xs leading-relaxed text-emerald-950/85">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600/15 text-[10px] font-medium text-emerald-950">{index + 1}</span>
                 <span>{insight}</span>
               </div>
             ))}
