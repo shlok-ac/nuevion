@@ -12,25 +12,17 @@ export default function CommandDashboard() {
   return (
     <div className="space-y-6 p-6">
       <Card>
-        <CardContent className="p-4 text-sm">
-          <p className="flex items-center gap-2 text-base font-semibold text-emerald-600">
-            <span aria-hidden="true" className="w-4 shrink-0">●</span>
+        <CardContent className="p-4 text-xs">
+          <p className="flex items-center gap-2 font-medium text-emerald-600">
+            <span aria-hidden="true">●</span>
             Data systems operational
           </p>
-          <p className="mt-1 pl-6 text-muted-foreground">Last sync: 22:34:12</p>
+          <p className="mt-2 text-muted-foreground">Last sync: 22:34:12</p>
           <div className="mt-3 grid gap-2 text-foreground sm:grid-cols-2 xl:grid-cols-4">
             {["NCRP", "Bank feeds", "Transaction engine", "ML model"].map((system) => (
-              <div
-                key={system}
-                className="group flex min-h-8 items-center justify-between rounded-md border bg-background px-3 py-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/15 hover:bg-accent hover:shadow-[0_8px_20px_-10px_rgb(15_23_42/0.2)]"
-              >
+              <div key={system} className="flex min-h-8 items-center justify-between rounded-md border bg-background px-3 py-1.5">
                 <span>{system}</span>
-                <span
-                  className="flex h-5 w-5 items-center justify-center text-emerald-600 transition-transform duration-200 group-hover:scale-110"
-                  aria-label="operational"
-                >
-                  ✓
-                </span>
+                <span className="flex h-5 w-5 items-center justify-center text-emerald-600" aria-label="operational">✓</span>
               </div>
             ))}
           </div>
@@ -47,13 +39,12 @@ export default function CommandDashboard() {
       <CaseQueue />
 
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2.5 text-base">
-            <Activity className="h-5 w-5 shrink-0" /> Live activity feed
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Activity className="h-4 w-4" /> Live activity feed
           </CardTitle>
         </CardHeader>
-        <div aria-hidden="true" className="mx-6 h-px bg-blue-500/30" />
-        <CardContent className="space-y-2 pt-5 text-sm">
+        <CardContent className="space-y-2 text-sm">
           {alerts.map((a) => (
             <div key={a.id} className="flex items-center justify-between border-b pb-2 last:border-0">
               <span>

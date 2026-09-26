@@ -5,8 +5,8 @@ import { Printer, Download, FileText } from "lucide-react";
 import { cases, evidenceByCase, formatINR } from "@/lib/investigationData";
 import CaseSelector from "@/components/command/CaseSelector";
 
-export default function EvidenceReportExport({ initialCaseId }) {
-  const [caseId, setCaseId] = useState(initialCaseId ?? cases[0].id);
+export default function EvidenceReportExport() {
+  const [caseId, setCaseId] = useState(cases[0].id);
   const c = cases.find((x) => x.id === caseId);
   const items = evidenceByCase[caseId] || [];
 
