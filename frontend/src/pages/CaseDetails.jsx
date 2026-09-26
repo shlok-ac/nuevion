@@ -104,7 +104,7 @@ export default function CaseDetails() {
 
   if (!caseItem) {
     return (
-      <div className="space-y-4 p-4 sm:p-5 lg:p-6">
+      <div className="space-y-4 p-4 pt-6 sm:p-5 sm:pt-6 lg:p-6">
         <Button variant="ghost" className="-ml-3 h-8 py-0 pl-8 pr-3 text-sm text-muted-foreground hover:text-foreground" onClick={() => navigate("/case-management")}><ArrowLeft className="h-4 w-4" /> Back to Cases</Button>
         <Card><CardContent className="p-5 text-sm text-muted-foreground">Case not found.</CardContent></Card>
       </div>
@@ -124,7 +124,7 @@ export default function CaseDetails() {
   ];
 
   return (
-    <div className="space-y-3 p-4 sm:p-5 lg:space-y-4 lg:p-6">
+    <div className="space-y-3 p-4 pt-6 sm:p-5 sm:pt-6 lg:space-y-4 lg:p-6">
       <Button variant="ghost" className="-ml-3 h-8 py-0 pl-8 pr-3 text-sm text-muted-foreground hover:text-foreground" onClick={() => navigate("/case-management")}>
         <ArrowLeft className="h-4 w-4" /> Back to Cases
       </Button>
@@ -135,7 +135,7 @@ export default function CaseDetails() {
           <div className="grid gap-x-8 gap-y-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <div className="min-w-0">
               <p className="font-mono text-xs font-medium uppercase tracking-wider text-muted-foreground">{caseItem.id}</p>
-              <h2 className="mt-1 text-lg font-semibold leading-tight tracking-tight">{caseItem.title}</h2>
+              <h2 className="mt-1 text-xl font-semibold leading-tight tracking-tight">{caseItem.title}</h2>
             </div>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:gap-x-8 lg:grid-cols-4 lg:gap-x-6">
               <HeaderMeta label="Risk">

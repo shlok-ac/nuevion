@@ -1,4 +1,5 @@
 import MoneyTrailGraph from "@/components/command/MoneyTrailGraph";
+import PageHeader from "@/components/command/PageHeader";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { cases } from "@/lib/investigationData";
 
@@ -7,13 +8,11 @@ export default function MoneyTrail() {
   const [searchParams] = useSearchParams();
   const selectedCase = cases.find((item) => item.id === searchParams.get("case"));
   return (
-    <div className="space-y-4 p-6">
-      <div>
-        <h2 className="text-lg font-semibold">Interactive Money Trail</h2>
-        <p className="text-sm text-muted-foreground">
-          Trace the mule chain from victim to cash-out. Expand nodes, inspect transactions, and escalate to a freeze notice.
-        </p>
-      </div>
+    <div className="space-y-6 p-6">
+      <PageHeader
+        title="Interactive Money Trail"
+        description="Trace the mule chain from victim to cash-out. Expand nodes, inspect transactions, and escalate to a freeze notice."
+      />
       <MoneyTrailGraph initialCaseId={selectedCase?.muleChainId ?? state?.caseId} />
     </div>
   );

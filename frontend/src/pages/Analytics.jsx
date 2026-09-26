@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import PageHeader from "@/components/command/PageHeader";
 import { cn } from "@/lib/utils";
 
 const chartColors = {
@@ -426,23 +427,23 @@ export default function Analytics() {
   const [section, setSection] = useState("case");
 
   return (
-    <div className="space-y-5 p-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold">Analytics</h2>
-          <p className="text-sm text-muted-foreground">Monitor case activity and model performance.</p>
-        </div>
-        <Tabs value={section} onValueChange={setSection}>
-          <TabsList className="h-10 rounded-lg border bg-muted/80 p-1 shadow-sm">
-            <TabsTrigger value="case" className="gap-2 px-3 text-xs">
-              <FileSearch className="h-3.5 w-3.5" /> Case Analytics
-            </TabsTrigger>
-            <TabsTrigger value="model" className="gap-2 px-3 text-xs">
-              <BrainCircuit className="h-3.5 w-3.5" /> ML Model Analytics
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+    <div className="space-y-6 p-6">
+      <PageHeader
+        title="Analytics"
+        description="Monitor case activity and model performance."
+        actions={
+          <Tabs value={section} onValueChange={setSection}>
+            <TabsList className="h-10 rounded-lg border bg-muted/80 p-1 shadow-sm">
+              <TabsTrigger value="case" className="gap-2 px-3 text-xs">
+                <FileSearch className="h-3.5 w-3.5" /> Case Analytics
+              </TabsTrigger>
+              <TabsTrigger value="model" className="gap-2 px-3 text-xs">
+                <BrainCircuit className="h-3.5 w-3.5" /> ML Model Analytics
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        }
+      />
       <div key={section} className="animate-in fade-in-0 duration-300">
         {section === "case" ? <CaseAnalytics /> : <ModelAnalytics />}
       </div>

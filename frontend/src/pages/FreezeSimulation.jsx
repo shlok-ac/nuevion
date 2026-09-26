@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import CaseSelector from "@/components/command/CaseSelector";
 import BankAppSim from "@/components/command/BankAppSim";
 import AtmSim from "@/components/command/AtmSim";
+import PageHeader from "@/components/command/PageHeader";
 import { cases } from "@/lib/investigationData";
 import { Snowflake, Eye, EyeOff, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -73,14 +74,11 @@ export default function FreezeSimulation() {
         };
 
   return (
-    <div className="space-y-4 p-6">
-      <div>
-        <h2 className="text-lg font-semibold">Silent Bank Freeze Simulation</h2>
-        <p className="text-sm text-muted-foreground">
-          Case-specific, real-time preview of what the suspect experiences. Switch the scenario to see normal, silent-freeze,
-          and declined states.
-        </p>
-      </div>
+    <div className="space-y-6 p-6">
+      <PageHeader
+        title="Silent Bank Freeze Simulation"
+        description="Case-specific, real-time preview of what the suspect experiences. Switch the scenario to see normal, silent-freeze, and declined states."
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <CaseSelector cases={cases} value={caseId} onValueChange={onCaseChange} className="w-72" />

@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import CaseSelector from "@/components/command/CaseSelector";
 import OperationalActionDialog, { widenWindow } from "@/components/command/OperationalActionDialog";
+import PageHeader from "@/components/command/PageHeader";
 import { getActionStatusLabel } from "@/lib/caseActionStore";
 import { useCaseActions } from "@/hooks/useCaseActions";
 import { cases, formatINR, muleChains, suspects } from "@/lib/investigationData";
@@ -404,13 +405,11 @@ export default function ATMIntelligence() {
   const handleRegionSelect = (region) => setSelectedRegionId(region.id);
 
   return (
-    <div className="space-y-4 p-6">
-      <div>
-        <h2 className="text-lg font-semibold">ATM Intelligence</h2>
-        <p className="text-sm text-muted-foreground">
-          Case-specific ATM risk review, cash-out pattern analysis, and AI-led escalation signals for active fraud investigations.
-        </p>
-      </div>
+    <div className="space-y-6 p-6">
+      <PageHeader
+        title="ATM Intelligence"
+        description="Case-specific ATM risk review, cash-out pattern analysis, and AI-led escalation signals for active fraud investigations."
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <CaseSelector cases={cases} value={caseId} onValueChange={setCaseId} className="w-[360px]" />
