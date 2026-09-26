@@ -47,12 +47,13 @@ export default function CommandDashboard() {
       <CaseQueue />
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <Activity className="h-4 w-4" /> Live activity feed
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <Activity className="h-5 w-5 shrink-0" /> Live activity feed
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
+        <div aria-hidden="true" className="h-px bg-blue-500/30" />
+        <CardContent className="space-y-2 pt-4 text-sm">
           {alerts.map((a) => (
             <div key={a.id} className="flex items-center justify-between border-b pb-2 last:border-0">
               <span>

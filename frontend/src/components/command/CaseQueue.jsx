@@ -25,14 +25,15 @@ export default function CaseQueue() {
   return (
     <div className="grid gap-x-4 gap-y-6 lg:grid-cols-2">
       <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-sm">Active Cases · sorted by amount</CardTitle>
-          <Badge variant="secondary">{sortedCases.length}</Badge>
+        <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+          <CardTitle className="text-base">Active Cases · sorted by amount</CardTitle>
+          <Badge variant="secondary" className="px-3 py-1 text-sm">{sortedCases.length}</Badge>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <div aria-hidden="true" className="h-px bg-emerald-500/30" />
+        <CardContent className="space-y-2 pt-4">
           {sortedCases.map((c) => (
             <Link key={c.id} to={`/cases/${c.id}`} className="block">
-              <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent">
+              <div className="group flex items-center justify-between rounded-lg border p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/15 hover:bg-accent hover:shadow-[0_8px_20px_-10px_rgb(15_23_42/0.25)]">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="truncate text-sm font-medium">{c.title}</span>
@@ -40,7 +41,7 @@ export default function CaseQueue() {
                       {c.priority}
                     </span>
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{c.id} · {c.fraudType}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground transition-colors duration-200 group-hover:text-foreground">{c.id} · {c.fraudType}</p>
                 </div>
                 <div className="ml-3 text-right">
                   <p className="text-sm font-semibold">{formatINR(c.amount)}</p>
@@ -55,13 +56,14 @@ export default function CaseQueue() {
       </Card>
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <AlertTriangle className="h-4 w-4 text-red-500" /> Priority Alerts · sorted by time
+        <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" /> Priority Alerts · sorted by time
           </CardTitle>
-          <Badge variant="secondary">{sortedAlerts.length}</Badge>
+          <Badge variant="secondary" className="px-3 py-1 text-sm">{sortedAlerts.length}</Badge>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <div aria-hidden="true" className="h-px bg-red-500/30" />
+        <CardContent className="space-y-2 pt-4">
           {sortedAlerts.map((a) => (
             <div key={a.id} className="flex items-start gap-3 rounded-lg border p-3">
               <span className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", a.severity === "critical" ? "bg-red-500" : "bg-amber-500")} />
