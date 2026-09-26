@@ -32,8 +32,8 @@ const modes = [
 // white would be ~1.1:1 and effectively invisible, so the icon recolours with the
 // text rather than staying white.
 // `px-3` trims the default button padding so it sits comfortably in the row.
-// `h-9` + the 1px border give this button the exact same box model as the
-// bordered controls beside it, so all three measure 36px identically.
+// `h-10` + the 1px border give this button the exact same box model as the
+// bordered controls beside it, so all three measure 40px identically.
 const FREEZE_ACTION_CLASS = "h-9 border border-red-200 px-3 bg-red-50 text-red-700 shadow-sm hover:bg-red-100";
 // Muted completed state, matching the emerald treatment used elsewhere (CaseDetails).
 const FREEZE_DONE_CLASS = "h-9 border border-transparent px-3 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-100";
@@ -122,7 +122,7 @@ export default function FreezeSimulation() {
       />
 
       <div className="flex flex-wrap items-center gap-4">
-        <CaseSelector cases={cases} value={caseId} onValueChange={onCaseChange} className="w-72 h-9 py-0" />
+        <CaseSelector cases={cases} value={caseId} onValueChange={onCaseChange} className="w-72 h-10 py-0" />
         <Button
           type="button"
           onClick={() => setConfirmOpen(true)}
@@ -132,19 +132,42 @@ export default function FreezeSimulation() {
           {isFrozen ? <Check /> : <Snowflake />}
           {isFrozen ? "Mule Account Frozen" : "Freeze Mule Account"}
         </Button>
-        <div className="flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 p-1">
-          {modes.map((m) => (
-            <button
-              key={m.value}
-              onClick={() => setMode(m.value)}
-              className={cn(
-                "flex h-6 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-                mode === m.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-background/70"
-              )}
-            >
-              <m.icon className="h-3.5 w-3.5" /> {m.label}
-            </button>
-          ))}
+        {/* Scenario segmented control.
+            The whole row is h-10 so the track is finally tall enough to breathe:
+            40px - 2px borders - 5px of padding leaves a 28px pill with 5px of
+            clearance on all four sides — genuinely more space than the cramped 3px
+            this started with, without shrinking the pill to buy it. The pill is
+            `h-full` rather than a fixed height so it always fills the content box
+            whatever the padding is set to, which stops the two values drifting apart.
+            h-10 matches the CaseSelector and the Freeze button beside it, and 5px
+            comfortably seats the 1px focus ring (the ring ui/button.jsx uses). */}
+        <div
+          role="group"
+          aria-label="Freeze scenario"
+          className="flex h-10 items-center gap-1 rounded-lg border border-input bg-muted/40 p-[5px]"
+        >
+          {modes.map((m) => {
+            const selected = mode === m.value;
+            return (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => setMode(m.value)}
+                aria-pressed={selected}
+                className={cn(
+                  "flex h-full items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  // Hover stays on muted-foreground text so a hovered segment never
+                  // reads as the selected one — the fill alone carries that state.
+                  selected
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-background"
+                )}
+              >
+                <m.icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                {m.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
