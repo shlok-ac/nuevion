@@ -77,7 +77,7 @@ export default function FreezeSimulation() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Silent Bank Freeze Simulation"
-        description="Case-specific, real-time preview of what the suspect experiences. Switch the scenario to see normal, silent-freeze, and declined states."
+        description="Case-specific, real-time preview of what the suspect experiences."
       />
 
       <div className="flex flex-wrap items-center gap-3">
@@ -96,6 +96,9 @@ export default function FreezeSimulation() {
             </button>
           ))}
         </div>
+        <p className="text-xs text-muted-foreground">
+          Switch the scenario to see normal, silent-freeze, and declined states.
+        </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

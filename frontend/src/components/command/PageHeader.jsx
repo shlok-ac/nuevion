@@ -8,9 +8,18 @@ import { cn } from "@/lib/utils";
  * page content. With the Topbar dashboard-only they became the top-level title
  * of their page, so this component standardises the rhythm in one place —
  *
- *   - a prominent `h1` (the page had no `h1` of its own before),
- *   - a muted description seated one step below it,
- *   - optional page actions (`actions`) pinned to the leading-edge/right side,
+ *   - a prominent `h1` (the page had no `h1` of its own before) sized at `text-lg`
+ *     to sit just above the Topbar's old `text-base` title rather than jump past
+ *     it — the rest of the UI is deliberately dense (14px card titles, 13px
+ *     section labels, 11px field labels) and a `text-xl` page title outweighed
+ *     every data value on the page,
+ *   - a muted description seated one step below it, both `text-balance`d so a
+ *     long subtitle breaks into two even lines instead of running full measure
+ *     and orphaning its last two or three words on a line of their own,
+ *   - optional page actions (`actions`) centred against the text block on the
+ *     trailing edge — a two-line title block is taller than a typical 36–40px
+ *     control, so top-aligning the control leaves a dead gap under it and makes
+ *     it read as detached,
  *   - a hairline `border-b` that takes over the Topbar's old `border-b` as the
  *     separator between page identity and page content.
  *
@@ -21,14 +30,16 @@ export default function PageHeader({ title, description, actions, className }) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-4 border-b pb-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6",
+        "flex flex-col gap-4 border-b pb-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6",
         className
       )}
     >
       <div className="min-w-0">
-        <h1 className="text-xl font-semibold leading-tight tracking-tight">{title}</h1>
+        <h1 className="text-balance text-lg font-semibold leading-tight tracking-tight">{title}</h1>
         {description && (
-          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">{description}</p>
+          <p className="mt-1 max-w-3xl text-balance text-sm leading-relaxed text-muted-foreground">
+            {description}
+          </p>
         )}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-3">{actions}</div>}
