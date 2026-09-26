@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 
 import "fake-indexeddb/auto";
 
-const { BANK_SYNC_STATUS, readBankSyncRecords, markMuleAccountsSent } = await import(
+const { BANK_SYNC_STATUS, readBankSyncRecords, markMuleAccountsSent, resetMuleAccountSync } = await import(
   "../src/lib/muleAccountStore.js"
 );
 
@@ -89,5 +89,17 @@ await check("empty call is a safe no-op", async () => {
   assert.deepEqual(blanks, []);
 });
 
+// 8. Reset returns the whole registry to PENDING, and stays reset.
+await check("reset returns every account to PENDING", async () => {
+  await markMuleAccountsSent(["XXXXXX8842", "XXXXXX3391"], { via: "bulk" });
+  assert.ok((await readBankSyncRecords()).length > 0, "precondition: something is sent");
+  await resetMuleAccountSync();
+  assert.deepEqual(await readBankSyncRecords(), []);
+  for (const id of ACCOUNTS) assert.equal(await statusOf(id), BANK_SYNC_STATUS.pending);
+});
+
 console.log("\nMule Account bank-sync store\n" + results.join("\n"));
 console.log(process.exitCode ? "\nFAILED" : "\nAll checks passed.\n");
+
+// Open IndexedDB handles keep the event loop alive, so exit explicitly.
+process.exit(process.exitCode ?? 0);

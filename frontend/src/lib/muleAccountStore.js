@@ -109,6 +109,9 @@ const indexedDbAdapter = {
     await runTransaction(storeName, "readwrite", (store) => requestToPromise(store.put(record)));
     return record;
   },
+  async clear(storeName) {
+    await runTransaction(storeName, "readwrite", (store) => requestToPromise(store.clear()));
+  },
 };
 
 /** Fallback used when IndexedDB is unavailable — same API, localStorage backed. */
@@ -134,6 +137,14 @@ const localStorageAdapter = {
       /* storage blocked or full — the UI still updates from its own state */
     }
     return record;
+  },
+  async clear(storeName) {
+    const state = this.read();
+    try {
+      window.localStorage.setItem(FALLBACK_STORAGE_KEY, JSON.stringify({ ...state, [storeName]: [] }));
+    } catch {
+      /* storage blocked or full — nothing to clear */
+    }
   },
 };
 
@@ -179,6 +190,18 @@ if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
     if (event.key === FALLBACK_STORAGE_KEY) notifySubscribers();
   });
+
+  // Dev-only escape hatch: lets the prototype be reset from the console after a
+  // demo run without adding a reset control to the page chrome.
+  if (import.meta.env?.DEV) {
+    window.__cfcMuleSync = {
+      reset: async () => {
+        await resetMuleAccountSync();
+        return "Mule account bank-sync state reset to PENDING.";
+      },
+      status: async () => readBankSyncRecords(),
+    };
+  }
 }
 
 /** Every account that has been marked as submitted, newest first. */
@@ -228,6 +251,18 @@ export async function markMuleAccountsSent(accountIds, { via = "single" } = {}) 
   }
 
   return { records: written, skipped };
+}
+
+/**
+ * Drop every persisted bank-sync record, returning the whole registry to
+ * PENDING. Exists so the prototype can be reset after a demo run without
+ * leaving stale SENT state behind for the next walkthrough.
+ */
+export async function resetMuleAccountSync() {
+  const adapter = await getAdapter();
+  await adapter.clear(SYNC_STORE);
+  notifySubscribers();
+  broadcastChange();
 }
 
 /** Subscribe to writes from this tab and from other tabs. Returns an unsubscribe function. */

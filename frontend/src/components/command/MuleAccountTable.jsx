@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,11 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, Plus, Send, SendHorizontal, Check, ShieldCheck, Landmark, Hash, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { Search, Plus, Upload, Send, SendHorizontal, Check, ShieldCheck, Landmark, Hash, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { muleAccounts as initialMuleAccounts, formatINR } from "@/lib/investigationData";
 import { BANK_SYNC_STATUS, getBankSyncStatusLabel } from "@/lib/muleAccountStore";
 import { useMuleAccountSync } from "@/hooks/useMuleAccountSync";
 import { cn } from "@/lib/utils";
+
+const RISK_LEVELS = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
+const ACCOUNT_STATUSES = ["FROZEN", "UNDER_REVIEW", "ACTIVE", "MONITORED", "CLEARED"];
 
 const riskTone = {
   CRITICAL: "bg-red-500/10 text-red-600",
@@ -31,6 +34,45 @@ const statusTone = {
   MONITORED: "bg-amber-500/10 text-amber-600",
   CLEARED: "bg-muted text-muted-foreground",
 };
+
+/** Guards the badge lookups so an unrecognised imported value can never render `undefined` classes. */
+const toEnum = (value, allowed, fallback) => {
+  const normalised = String(value || "").trim().toUpperCase().replace(/\s+/g, "_");
+  return allowed.includes(normalised) ? normalised : fallback;
+};
+
+/** Splits one CSV line, honouring quoted cells so a `"₹42,00,000"` amount survives the comma. */
+const parseCsvLine = (line) => {
+  const cells = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (inQuotes) {
+      if (char === '"' && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else if (char === '"') {
+        inQuotes = false;
+      } else {
+        current += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      cells.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  cells.push(current.trim());
+  return cells;
+};
+
+/** Accepts `4200000`, `42,00,000` and `₹42,00,000` alike. */
+const parseAmount = (value) => Number(String(value ?? "").replace(/[^\d.]/g, "")) || 0;
+
 const blank = {
   accountId: "",
   bank: "",
@@ -69,6 +111,7 @@ export default function MuleAccountTable() {
   const [sendTarget, setSendTarget] = useState(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [notice, setNotice] = useState("");
+  const fileRef = useRef(null);
 
   const { getStatus, markSent } = useMuleAccountSync();
 
@@ -108,6 +151,38 @@ export default function MuleAccountTable() {
     setAddOpen(false);
   };
 
+  /**
+   * CSV import, mirroring the Suspect Database's Import. Expected header:
+   * Account ID, Bank, Linked Cases, Total Inflow, Total Outflow, Risk, Status.
+   * Linked cases are pipe-separated so they survive the comma delimiter.
+   */
+  const onImport = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || "");
+      const lines = text.split(/\r?\n/).filter((line) => line.trim());
+      const parsed = lines.slice(1).map((line, i) => {
+        const cols = parseCsvLine(line);
+        return {
+          accountId: cols[0] || `XXXXXX000${i + 1}`,
+          bank: cols[1] || "—",
+          linkedCases: cols[2] ? cols[2].split("|").map((x) => x.trim()).filter(Boolean) : [],
+          totalInflow: parseAmount(cols[3]),
+          totalOutflow: parseAmount(cols[4]),
+          risk: toEnum(cols[5], RISK_LEVELS, "MEDIUM"),
+          status: toEnum(cols[6], ACCOUNT_STATUSES, "UNDER_REVIEW"),
+        };
+      });
+      if (!parsed.length) return;
+      setRows((r) => [...r, ...parsed]);
+      setNotice(`${parsed.length} mule accounts imported in the prototype.`);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   /** Prototype-only: flips local state, never touches the network. */
   const confirmSend = async () => {
     const accountId = sendTarget?.accountId;
@@ -144,6 +219,10 @@ export default function MuleAccountTable() {
             <SelectItem value="CLEARED">Cleared</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" onClick={() => fileRef.current?.click()}>
+          <Upload className="h-4 w-4" /> Import
+        </Button>
+        <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={onImport} />
         <Button
           variant="outline"
           onClick={() => setBulkOpen(true)}
@@ -184,7 +263,7 @@ export default function MuleAccountTable() {
               <TableHead>Total outflow</TableHead>
               <TableHead>Risk</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Bank Sync</TableHead>
+              <TableHead className="w-[100px]">Bank Sync</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -205,13 +284,13 @@ export default function MuleAccountTable() {
                       {m.status.replace("_", " ")}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="w-[100px]" onClick={(e) => e.stopPropagation()}>
                     {isSent ? (
                       <Button
                         size="sm"
                         variant="outline"
                         disabled
-                        className="h-7 gap-1.5 border-emerald-500/30 bg-emerald-500/5 px-2 text-xs text-emerald-600"
+                        className="h-7 w-[84px] gap-1.5 px-2 text-xs text-emerald-600"
                       >
                         <Check className="h-3.5 w-3.5" /> Sent
                       </Button>
@@ -219,7 +298,7 @@ export default function MuleAccountTable() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 gap-1.5 px-2 text-xs"
+                        className="h-7 w-[84px] gap-1.5 px-2 text-xs"
                         onClick={() => setSendTarget(m)}
                       >
                         <Send className="h-3.5 w-3.5" /> Send
