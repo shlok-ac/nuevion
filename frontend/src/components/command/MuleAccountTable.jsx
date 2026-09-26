@@ -133,8 +133,9 @@ export default function MuleAccountTable() {
 
   const addMuleAccount = (e) => {
     e.preventDefault();
-    setRows([
-      ...rows,
+    // Newest first: the new record lands at the top rather than below the
+    // existing registry, matching the mock-data ordering.
+    setRows((r) => [
       {
         accountId: form.accountId.trim(),
         bank: form.bank.trim() || "—",
@@ -146,6 +147,7 @@ export default function MuleAccountTable() {
         risk: form.risk,
         status: form.status,
       },
+      ...r,
     ]);
     setForm(blank);
     setAddOpen(false);
@@ -176,7 +178,9 @@ export default function MuleAccountTable() {
         };
       });
       if (!parsed.length) return;
-      setRows((r) => [...r, ...parsed]);
+      // Newest first: imported rows go above the existing registry, and stay in
+      // file order among themselves.
+      setRows((r) => [...parsed, ...r]);
       setNotice(`${parsed.length} mule accounts imported in the prototype.`);
     };
     reader.readAsText(file);
@@ -263,7 +267,7 @@ export default function MuleAccountTable() {
               <TableHead>Total outflow</TableHead>
               <TableHead>Risk</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-[100px]">Bank Sync</TableHead>
+              <TableHead className="w-[122px] pr-[30px] text-center">Bank Sync</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -284,7 +288,7 @@ export default function MuleAccountTable() {
                       {m.status.replace("_", " ")}
                     </span>
                   </TableCell>
-                  <TableCell className="w-[100px]" onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="w-[122px] pr-[30px] text-center" onClick={(e) => e.stopPropagation()}>
                     {isSent ? (
                       <Button
                         size="sm"
