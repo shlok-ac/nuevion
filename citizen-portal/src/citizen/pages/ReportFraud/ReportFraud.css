@@ -411,3 +411,11 @@
     padding: 18px;
   }
 }
+
+
+.field-error {
+  margin-top: 5px;
+  color: #c0392b;
+  font-size: 12px;
+  line-height: 1.4;
+}
