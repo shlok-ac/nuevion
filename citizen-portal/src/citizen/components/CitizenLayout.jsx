@@ -2,14 +2,13 @@ import React from "react";
 import { NavLink, Outlet, Link } from "react-router-dom";
 import "../styles/CitizenPortal.css";
 
-function NirikshanSeal() {
+function ArthaVyuhLogo() {
   return (
-    <div className="nirikshan-seal" aria-label="Nirikshan AI seal">
-      <div className="seal-inner">
-        <span className="seal-eye">◉</span>
-        <span className="seal-glass">⌕</span>
-      </div>
-    </div>
+    <img
+      src="/assets/arthavyuh-logo.png"
+      alt="ArthaVyuh"
+      className="arthavyuh-logo"
+    />
   );
 }
 
@@ -42,10 +41,10 @@ export default function CitizenLayout() {
       <header className="citizen-header">
         <div className="citizen-container header-inner">
           <Link to="/" className="brand">
-            <NirikshanSeal />
+            <ArthaVyuhLogo />
 
             <div className="brand-text">
-              <div className="brand-name">NIRIKSHAN AI</div>
+              <div className="brand-name">ARTHAVYUH</div>
               <div className="brand-subtitle">
                 National Cybercrime Reporting Portal
               </div>
@@ -100,7 +99,7 @@ export default function CitizenLayout() {
       <footer className="citizen-footer">
         <div className="citizen-container footer-grid">
           <div>
-            <h3>Nirikshan AI</h3>
+            <h3>ArthaVyuh</h3>
             <p>
               A citizen-focused cybercrime reporting and complaint tracking
               prototype developed for Smart India Hackathon.
@@ -131,7 +130,7 @@ export default function CitizenLayout() {
 
         <div className="footer-bottom">
           <div className="citizen-container">
-            <span>© 2026 Nirikshan AI · SIH Prototype</span>
+            <span>© 2026 ArthaVyuh · SIH Prototype</span>
             <span>Designed for secure citizen reporting</span>
           </div>
         </div>

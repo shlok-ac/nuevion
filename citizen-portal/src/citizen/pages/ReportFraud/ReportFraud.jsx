@@ -14,6 +14,7 @@ export default function ReportFraud() {
   const navigate = useNavigate();
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [errors, setErrors] = useState({});
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -790,12 +791,6 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
     JSON.stringify(complaint)
   );
 
-  // Generate the PDF from the SAME
-  // complaint object that was stored.
-  generatePDF(
-    complaintNumber,
-    complaint
-  );
 
   navigate(
     `/complaint/${complaintNumber}/confirmation`
@@ -982,6 +977,12 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
                     placeholder="Describe the incident in detail..."
                   />
 
+                  {errors.description && (
+                    <small className="field-error">
+                      {errors.description}
+                    </small>
+                  )}
+
                   <small>
                     Include relevant information such
                     as calls, messages, websites or
@@ -1004,6 +1005,12 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
                       )
                     }
                   />
+
+                  {errors.incidentDate && (
+                    <small className="field-error">
+                      {errors.incidentDate}
+                    </small>
+                  )}
                 </div>
 
                 <div className="form-field">
@@ -1021,6 +1028,12 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
                       )
                     }
                   />
+
+                  {errors.incidentTime && (
+                    <small className="field-error">
+                      {errors.incidentTime}
+                    </small>
+                  )}
                 </div>
 
               </div>
