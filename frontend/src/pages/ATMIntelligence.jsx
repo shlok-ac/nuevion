@@ -35,6 +35,7 @@ import {
 import CaseSelector from "@/components/command/CaseSelector";
 import OperationalActionDialog, { widenWindow } from "@/components/command/OperationalActionDialog";
 import PageHeader from "@/components/command/PageHeader";
+import CallerLocationAtmRiskZone from "@/components/command/CallerLocationAtmRiskZone";
 import { getActionStatusLabel } from "@/lib/caseActionStore";
 import { useCaseActions } from "@/hooks/useCaseActions";
 import { cases, formatINR, muleChains, suspects } from "@/lib/investigationData";
@@ -47,6 +48,63 @@ function flattenChain(node, acc = []) {
   }
   return acc;
 }
+
+/**
+ * ATMs opened from the map come from atm_predictions.csv, whose rows are
+ * snake_case and carry no linked-case count, fraud amount or predicted window.
+ * This adapts one row to the shape the watchlist and the details card already
+ * use, leaving the fields the dataset genuinely does not contain as null rather
+ * than inventing values for them.
+ */
+const atmFromPredictionRow = (row) => ({
+  atm: row.atm_id,
+  location: [row.bank_name, row.city].filter(Boolean).join(", "),
+  riskScore: Number.isFinite(Number(row.risk_score)) ? Number(row.risk_score) : 0,
+  status: String(row.risk_level || "").toLowerCase().replace(/^./, (char) => char.toUpperCase()),
+  rank: null,
+  linkedCases: null,
+  fraudAmount: null,
+  predictedWindow: null,
+  lastActivity: [row.date, row.time].filter(Boolean).join(" "),
+  predictedRiskLevel: row.predicted_risk_level,
+  predictionConfidence: Number(row.prediction_confidence) || 0,
+});
+
+/**
+ * "Why this ATM was predicted" is worded from whichever fields the ATM has: a
+ * watchlist row carries a linked-case count, fraud amount and predicted window,
+ * while a map row carries the model's own prediction and confidence. A complete
+ * watchlist row produces exactly the four sentences it always did.
+ */
+const buildRiskFactors = (atm) => {
+  const factors = [];
+
+  if (Number.isFinite(atm.linkedCases)) {
+    factors.push(
+      `${atm.linkedCases} linked fraud case${atm.linkedCases === 1 ? "" : "s"} in the surrounding corridor`
+    );
+  } else if (atm.predictedRiskLevel) {
+    factors.push(`Model predicted ${atm.predictedRiskLevel} risk at ${atm.predictionConfidence}% confidence`);
+  }
+
+  if (atm.fraudAmount) {
+    factors.push(`${atm.fraudAmount} associated fraud value identified in historical activity`);
+  }
+
+  if (atm.predictedWindow) {
+    factors.push(
+      `Predicted cash-out window overlaps with the region's highest-risk period (${atm.predictedWindow})`
+    );
+  }
+
+  factors.push(
+    atm.riskScore >= 80
+      ? "Historical mule-account activity shows a strong location and timing match"
+      : "Historical mule-account activity shows a moderate location and timing match"
+  );
+
+  return factors;
+};
 
 const riskTone = {
   critical: "bg-red-500/10 text-red-600 border-red-200",
@@ -284,6 +342,9 @@ export default function ATMIntelligence() {
   const [selectedAtm, setSelectedAtm] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
   const [actionNotice, setActionNotice] = useState(null);
+  // ATMs the map found inside the selected case's caller-location buffer. The map
+  // owns the geography, so it reports them upward rather than the page recomputing it.
+  const [callerCircleAtms, setCallerCircleAtms] = useState([]);
 
   const activeCase = useMemo(() => cases.find((item) => item.id === caseId) ?? cases[0], [caseId]);
 
@@ -300,15 +361,13 @@ export default function ATMIntelligence() {
   const atmDetails = selectedAtm
     ? {
         ...selectedAtm,
-        lastActivity: selectedAtm.rank === 1 ? "18:42" : `${18 + (selectedAtm.rank % 2)}:${selectedAtm.rank % 2 ? "18" : "42"}`,
-        riskFactors: [
-          `${selectedAtm.linkedCases} linked fraud case${selectedAtm.linkedCases === 1 ? "" : "s"} in the surrounding corridor`,
-          `${selectedAtm.fraudAmount} associated fraud value identified in historical activity`,
-          `Predicted cash-out window overlaps with the region's highest-risk period (${selectedAtm.predictedWindow})`,
-          selectedAtm.riskScore >= 80
-            ? "Historical mule-account activity shows a strong location and timing match"
-            : "Historical mule-account activity shows a moderate location and timing match",
-        ],
+        // Watchlist rows carry no timestamp of their own and keep the existing
+        // rank-based one; a row opened from the map has a real timestamp from the
+        // prediction file, so it wins.
+        lastActivity:
+          selectedAtm.lastActivity ??
+          (selectedAtm.rank === 1 ? "18:42" : `${18 + (selectedAtm.rank % 2)}:${selectedAtm.rank % 2 ? "18" : "42"}`),
+        riskFactors: buildRiskFactors(selectedAtm),
       }
     : null;
 
@@ -410,6 +469,10 @@ export default function ATMIntelligence() {
 
   const handleRegionSelect = (region) => setSelectedRegionId(region.id);
 
+  // Opening an ATM from the map runs its prediction row through the same adapter
+  // the watchlist uses, so the details card reads identically wherever it opens.
+  const handleMapAtmSelect = (row) => setSelectedAtm(atmFromPredictionRow(row));
+
   return (
     <div className="space-y-6 p-6">
       <PageHeader
@@ -461,9 +524,12 @@ export default function ATMIntelligence() {
             </Badge>
           </div>
 
-          <div className="flex h-[340px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 text-sm text-muted-foreground">
-            Map placeholder — interactive ATM corridor / movement map will render here
-          </div>
+          <CallerLocationAtmRiskZone
+            caseId={caseId}
+            investigationCases={cases}
+            onNearbyAtmsChange={setCallerCircleAtms}
+            onAtmSelect={handleMapAtmSelect}
+          />
         </div>
 
         <aside className="rounded-xl border bg-card p-3 shadow-sm">
@@ -523,7 +589,9 @@ export default function ATMIntelligence() {
             </p>
           </div>
           <Badge className="border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
-            {selectedAtms.length} ranked ATMs
+            {callerCircleAtms.length
+              ? `${selectedAtms.length} ranked · ${callerCircleAtms.length} in caller zone`
+              : `${selectedAtms.length} ranked ATMs`}
           </Badge>
         </CardHeader>
         <CardContent>
