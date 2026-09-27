@@ -1,0 +1,5 @@
+src/components/CallerLocationAtmRiskZone.jsx
+src/pages/ATMIntelligence.jsx
+src/index.css
+
+files to be changed

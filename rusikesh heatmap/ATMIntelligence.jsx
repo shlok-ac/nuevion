@@ -35,6 +35,7 @@ import {
 import CaseSelector from "@/components/command/CaseSelector";
 import OperationalActionDialog, { widenWindow } from "@/components/command/OperationalActionDialog";
 import PageHeader from "@/components/command/PageHeader";
+import CallerLocationAtmRiskZone from "@/components/CallerLocationAtmRiskZone";
 import { getActionStatusLabel } from "@/lib/caseActionStore";
 import { useCaseActions } from "@/hooks/useCaseActions";
 import { cases, formatINR, muleChains, suspects } from "@/lib/investigationData";
@@ -282,6 +283,7 @@ export default function ATMIntelligence() {
   const [selectedRegionId, setSelectedRegionId] = useState(regionScores[0].id);
   const [dialogRegion, setDialogRegion] = useState(null);
   const [selectedAtm, setSelectedAtm] = useState(null);
+  const [callerCircleAtms, setCallerCircleAtms] = useState([]);
   const [pendingAction, setPendingAction] = useState(null);
   const [actionNotice, setActionNotice] = useState(null);
 
@@ -461,9 +463,7 @@ export default function ATMIntelligence() {
             </Badge>
           </div>
 
-          <div className="flex h-[340px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 text-sm text-muted-foreground">
-            Map placeholder — interactive ATM corridor / movement map will render here
-          </div>
+          <CallerLocationAtmRiskZone caseId={caseId} onCaseChange={setCaseId} investigationCases={cases} onNearbyAtmsChange={setCallerCircleAtms} />
         </div>
 
         <aside className="rounded-xl border bg-card p-3 shadow-sm">
@@ -517,16 +517,55 @@ export default function ATMIntelligence() {
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-base font-medium text-foreground">Ranked ATM Watchlist</CardTitle>
+            <CardTitle className="text-base font-medium text-foreground">Ranked ATM watchlist</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               Predicted cash-out locations for {selectedRegion.name}
             </p>
           </div>
           <Badge className="border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
-            {selectedAtms.length} ranked ATMs
+            {callerCircleAtms.length ? `${callerCircleAtms.length} caller-buffer ATMs + ${selectedAtms.length} ranked` : `${selectedAtms.length} ranked ATMs`}
           </Badge>
         </CardHeader>
         <CardContent>
+          {callerCircleAtms.length > 0 && (
+            <div className="mb-4 rounded-lg border bg-slate-50/60">
+              <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                <div>
+                  <div className="text-sm font-semibold text-foreground">ATMs in caller buffer</div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Same ATM data previously shown in the map-side panel, ranked by risk score.</p>
+                </div>
+                <Badge className="border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
+                  {callerCircleAtms.length} ATMs
+                </Badge>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-sm">
+                  <thead className="bg-muted/30 text-xs text-muted-foreground">
+                    <tr className="border-b">
+                      {["Rank", "ATM", "Bank / City", "Risk score", "Risk level", "Prediction confidence"].map((heading) => (
+                        <th key={heading} className="px-4 py-2.5 text-left font-medium">{heading}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {callerCircleAtms.map((atm, index) => (
+                      <tr key={`caller-${atm.atm_id}`} className="border-b last:border-0 hover:bg-muted/20">
+                        <td className="px-4 py-2.5 font-medium text-foreground">{index + 1}</td>
+                        <td className="px-4 py-2.5 font-medium text-foreground">{atm.atm_id}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{atm.bank_name} · {atm.city}</td>
+                        <td className="px-4 py-2.5 font-semibold text-foreground">{Number(atm.risk_score).toFixed(0)}</td>
+                        <td className="px-4 py-2.5">
+                          <Badge className="border border-red-200 bg-red-500/10 text-red-600">{atm.risk_level}</Badge>
+                        </td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{Number(atm.prediction_confidence).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto rounded-lg border">
             <div className="max-h-[350px] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <table className="w-full min-w-[980px] text-sm">
