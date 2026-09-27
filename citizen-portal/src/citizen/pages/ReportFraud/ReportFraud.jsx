@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
+import { submitComplaint } from "../../lib/api";
 import "./ReportFraud.css";
 
 const steps = [
@@ -15,6 +16,8 @@ export default function ReportFraud() {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -748,17 +751,18 @@ const generatePDF = (complaintNumber, complaint) => {
 };
 
 
-const handleSubmit = (event) => {
+const handleSubmit = async (event) => {
   event.preventDefault();
 
-const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+  setSubmitError("");
+  setSubmitting(true);
 
   /*
    * IMPORTANT:
    * File objects cannot be reliably stored
-   * inside localStorage.
-   *
-   * Convert them into plain metadata first.
+   * inside localStorage, and the API records evidence as
+   * metadata only, so the files are reduced to plain
+   * descriptors before the complaint is sent.
    */
   const evidenceMetadata =
     formData.evidence.map((file) => ({
@@ -766,6 +770,42 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
       size: file.size,
       type: file.type,
     }));
+
+  let complaintNumber;
+  let caseNumber = null;
+
+  try {
+    // Files the complaint with the cybercrime desk. The server mints the reference,
+    // stores the complaint and provisions a case + alert on the command center.
+    const filed = await submitComplaint({
+      complainantName: formData.fullName.trim(),
+      phone: formData.mobile.trim(),
+      email: formData.email.trim() || null,
+      bankName: formData.bankName.trim() || null,
+      accountNumber: formData.accountNumber.trim() || null,
+      transactionId: formData.transactionId.trim() || null,
+      transactionType: formData.transactionType,
+      fraudAmount: String(formData.fraudAmount || "").trim(),
+      location: formData.location.trim() || null,
+      description: formData.description.trim(),
+      fraudDate: formData.incidentDate || null,
+      fraudTime: formData.incidentTime || null,
+      evidence: evidenceMetadata,
+      source: "PORTAL",
+    });
+
+    complaintNumber = filed.complaintNumber;
+    caseNumber = filed.caseNumber;
+  } catch (error) {
+    // The citizen must never be left without a reference, so one is minted locally
+    // and the failure is surfaced rather than silently dropping the filing.
+    complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+    setSubmitError(
+      `We could not reach the cybercrime desk (${error.message}). Your reference is ${complaintNumber}. Please call 1930.`
+    );
+  } finally {
+    setSubmitting(false);
+  }
 
   const complaint = {
     ...formData,
@@ -779,6 +819,7 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
     ).trim(),
 
     complaintNumber,
+    caseNumber,
 
     status: "Received",
 
@@ -1418,9 +1459,28 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
     <button
       type="submit"
       className="submit-button"
+      disabled={submitting}
     >
-      Submit Complaint
+      {submitting ? "Filing complaint…" : "Submit Complaint"}
     </button>
+  )}
+
+  {submitError && (
+    <p
+      role="alert"
+      style={{
+        marginTop: "16px",
+        padding: "12px 14px",
+        borderRadius: "6px",
+        background: "#FEF2F2",
+        border: "1px solid #FECACA",
+        color: "#991B1B",
+        fontSize: "13px",
+        lineHeight: "1.5",
+      }}
+    >
+      {submitError}
+    </p>
   )}
 
 </div>

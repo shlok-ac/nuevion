@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PageHeader from "@/components/command/PageHeader";
+import { alerts, atmRankings, callCity, cases, formatINR, mlMetrics } from "@/lib/investigationData";
 import { cn } from "@/lib/utils";
 
 const chartColors = {
@@ -47,72 +48,50 @@ const chartColors = {
   slate: "#64748b",
 };
 
-const caseData = {
-  activity: {
-    "7": [
-      { day: "18 Sep", cases: 18, amount: 1.2 },
-      { day: "19 Sep", cases: 23, amount: 1.6 },
-      { day: "20 Sep", cases: 20, amount: 1.4 },
-      { day: "21 Sep", cases: 31, amount: 2.3 },
-      { day: "22 Sep", cases: 28, amount: 1.9 },
-      { day: "23 Sep", cases: 36, amount: 2.8 },
-      { day: "24 Sep", cases: 42, amount: 3.1 },
-    ],
-    "30": [
-      { day: "26 Aug", cases: 24, amount: 1.8 },
-      { day: "31 Aug", cases: 33, amount: 2.1 },
-      { day: "5 Sep", cases: 29, amount: 2.4 },
-      { day: "10 Sep", cases: 45, amount: 3.2 },
-      { day: "15 Sep", cases: 38, amount: 2.7 },
-      { day: "20 Sep", cases: 52, amount: 4.1 },
-      { day: "24 Sep", cases: 61, amount: 4.6 },
-    ],
-  },
-  regions: [
-    { name: "Mumbai", cases: 148, amount: 8.4 },
-    { name: "Pune", cases: 116, amount: 10.2 },
-    { name: "Nagpur", cases: 84, amount: 5.8 },
-    { name: "Nashik", cases: 67, amount: 4.1 },
-    { name: "Aurangabad", cases: 49, amount: 2.9 },
-  ],
-  risk: [
-    { name: "Critical", value: 42, color: chartColors.red },
-    { name: "High", value: 98, color: chartColors.amber },
-    { name: "Medium", value: 176, color: chartColors.primary },
-    { name: "Low", value: 148, color: chartColors.slate },
-  ],
-  status: [
-    { name: "Active", value: 124 },
-    { name: "Investigating", value: 86 },
-    { name: "Escalated", value: 38 },
-    { name: "Resolved", value: 216 },
-  ],
+const CRORE = 1e7;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Rupees rendered in the crore unit the charts are scaled to. */
+const inCrores = (n) => Number(n || 0) / CRORE;
+const crores = (n) => `₹${inCrores(n).toFixed(2)} Cr`;
+
+const dayKey = (iso) => String(iso || "").slice(0, 10);
+const addDays = (iso, n) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 };
 
-const modelData = {
-  performance: [
-    { day: "18 Sep", predicted: 38, actual: 35 },
-    { day: "19 Sep", predicted: 44, actual: 42 },
-    { day: "20 Sep", predicted: 41, actual: 43 },
-    { day: "21 Sep", predicted: 55, actual: 51 },
-    { day: "22 Sep", predicted: 48, actual: 50 },
-    { day: "23 Sep", predicted: 62, actual: 59 },
-    { day: "24 Sep", predicted: 68, actual: 65 },
-  ],
-  confidence: [
-    { range: "50–60%", value: 18 },
-    { range: "60–70%", value: 34 },
-    { range: "70–80%", value: 76 },
-    { range: "80–90%", value: 142 },
-    { range: "90–100%", value: 218 },
-  ],
-  confusion: [
-    { label: "True positive", value: "284", percentage: "56.8%" },
-    { label: "False positive", value: "18", percentage: "3.6%" },
-    { label: "False negative", value: "24", percentage: "4.8%" },
-    { label: "True negative", value: "174", percentage: "34.8%" },
-  ],
+/**
+ * The city a case is reported from. `callCity` is keyed by case number; a case filed
+ * after the last sync falls back to the city part of its branch ("Area, City").
+ */
+const cityOf = (c) =>
+  callCity[c.id] || String(c.branch || "").split(",").pop().trim() || "Unknown";
+
+const titleCase = (s) =>
+  String(s || "").replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
+
+const STATUS_LABELS = {
+  open: "Open",
+  active: "Active",
+  under_investigation: "Investigating",
+  monitoring: "Monitoring",
+  frozen: "Frozen",
+  resolved: "Resolved",
 };
+
+const PRIORITY_META = [
+  { name: "Critical", color: chartColors.red },
+  { name: "High", color: chartColors.amber },
+  { name: "Medium", color: chartColors.primary },
+  { name: "Low", color: chartColors.slate },
+];
+
+const pct = (v) => `${(Number(v || 0) * 100).toFixed(1)}%`;
+
+/** Every scored ATM the model has written a confidence for, across all regions. */
+const allAtms = Object.values(atmRankings).flat();
 
 const tooltipStyle = {
   borderRadius: "8px",
@@ -208,27 +187,148 @@ function KpiCard({ label, value, detail, icon: Icon, tone = "blue" }) {
 function CaseAnalytics() {
   const [range, setRange] = useState("7");
   const [metric, setMetric] = useState("cases");
-  const [selectedRegion, setSelectedRegion] = useState("Pune");
-  const activity = caseData.activity[range];
+  const [pickedRegion, setPickedRegion] = useState(null);
+  const days = Number(range) === 30 ? 30 : 7;
   const regionMetric = metric === "cases" ? "cases" : "amount";
   const regionUnit = metric === "cases" ? " cases" : " Cr";
 
+  /*
+   * Daily filing counts. The window is anchored on the newest filed date rather than
+   * today, so the chart always has data however stale the last sync is.
+   */
+  const { activity, windowCases, windowAmount } = useMemo(() => {
+    const dates = cases.map((c) => dayKey(c.filedDate)).filter(Boolean).sort();
+    if (!dates.length) return { activity: [], windowCases: 0, windowAmount: 0 };
+    const end = dates[dates.length - 1];
+    const keys = Array.from({ length: days }, (_, i) => addDays(end, i - days + 1));
+    const buckets = new Map(keys.map((k) => [k, { count: 0, amount: 0 }]));
+    let count = 0;
+    let amount = 0;
+    for (const c of cases) {
+      const bucket = buckets.get(dayKey(c.filedDate));
+      if (!bucket) continue;
+      bucket.count += 1;
+      bucket.amount += Number(c.amount) || 0;
+      count += 1;
+      amount += Number(c.amount) || 0;
+    }
+    const rows = keys.map((k) => {
+      const b = buckets.get(k);
+      const d = new Date(`${k}T00:00:00Z`);
+      return {
+        day: `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`,
+        cases: b.count,
+        amount: Number(inCrores(b.amount).toFixed(2)),
+      };
+    });
+    return { activity: rows, windowCases: count, windowAmount: amount };
+  }, [days]);
+
+  /** Cases and reported amount per city, largest first. */
+  const regionRows = useMemo(() => {
+    const byCity = new Map();
+    for (const c of cases) {
+      const name = cityOf(c);
+      const row = byCity.get(name) || { name, cases: 0, amount: 0 };
+      row.cases += 1;
+      row.amount += Number(c.amount) || 0;
+      byCity.set(name, row);
+    }
+    return [...byCity.values()]
+      .map((r) => ({ ...r, amount: Number(inCrores(r.amount).toFixed(2)) }))
+      .sort((a, b) => b.cases - a.cases)
+      .slice(0, 7);
+  }, []);
+
+  const focusRegion = regionRows.find((r) => r.name === pickedRegion) || regionRows[0] || null;
+
+  const riskMix = useMemo(
+    () =>
+      PRIORITY_META.map((meta) => ({
+        ...meta,
+        value: cases.filter((c) => String(c.priority).toLowerCase() === meta.name.toLowerCase())
+          .length,
+      })),
+    []
+  );
+
+  const statusMix = useMemo(() => {
+    const counts = new Map();
+    for (const c of cases) {
+      const key = String(c.status || "unknown");
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([key, value]) => ({ name: STATUS_LABELS[key] || titleCase(key), value }))
+      .sort((a, b) => b.value - a.value);
+  }, []);
+
+  const totals = useMemo(() => {
+    const total = cases.length;
+    const resolved = cases.filter((c) => String(c.status) === "resolved").length;
+    const critical = cases.filter(
+      (c) => String(c.priority).toLowerCase() === "critical"
+    ).length;
+    const amount = cases.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    return { total, resolved, critical, amount, open: total - resolved };
+  }, []);
+
   const insights = useMemo(() => {
-    const period = range === "7" ? "the last 7 days" : "the last 30 days";
-    return [
-      `Critical cases account for ${Math.round((42 / 124) * 100)}% of active investigations.`,
-      `${selectedRegion} has the highest reported fraud amount in ${period}.`,
-      `Average case value increased by ${range === "7" ? "12" : "18"}% versus the previous period.`,
-    ];
-  }, [range, selectedRegion]);
+    const top = regionRows[0];
+    const lines = [];
+    const openCritical = cases.filter(
+      (c) => String(c.priority).toLowerCase() === "critical" && String(c.status) !== "resolved"
+    ).length;
+    if (totals.open) {
+      lines.push(
+        `Critical cases are ${((openCritical / totals.open) * 100).toFixed(1)}% of the ${totals.open} cases still open.`
+      );
+    }
+    if (top) {
+      lines.push(`${top.name} has the most reports at ${top.cases} cases worth ₹${top.amount} Cr.`);
+    }
+    lines.push(
+      `${windowCases} ${windowCases === 1 ? "case was" : "cases were"} filed in the last ${days} days, averaging ${windowCases ? formatINR(Math.round(windowAmount / windowCases)) : "₹0"}.`
+    );
+    return lines;
+  }, [regionRows, totals, windowCases, windowAmount, days]);
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Active Cases" value="124" detail="+8.4% this period" icon={FileSearch} />
-        <KpiCard label="Critical Cases" value="42" detail="18 requiring escalation" icon={ShieldAlert} tone="red" />
-        <KpiCard label="Fraud Amount" value="₹31.4 Cr" detail="+12.1% this period" icon={CircleDollarSign} tone="amber" />
-        <KpiCard label="Resolved Cases" value="216" detail="63% resolution rate" icon={CheckCircle2} tone="teal" />
+        <KpiCard
+          label="Open Cases"
+          value={String(totals.open)}
+          detail={`${totals.total} cases on record`}
+          icon={FileSearch}
+        />
+        <KpiCard
+          label="Critical Cases"
+          value={String(totals.critical)}
+          detail={`${(
+            cases.filter(
+              (c) =>
+                String(c.priority).toLowerCase() === "critical" &&
+                String(c.status) !== "resolved"
+            ).length
+          )} still awaiting action`}
+          icon={ShieldAlert}
+          tone="red"
+        />
+        <KpiCard
+          label="Reported Amount"
+          value={crores(totals.amount)}
+          detail={`${crores(windowAmount)} in the last ${days} days`}
+          icon={CircleDollarSign}
+          tone="amber"
+        />
+        <KpiCard
+          label="Resolved Cases"
+          value={String(totals.resolved)}
+          detail={`${totals.total ? ((totals.resolved / totals.total) * 100).toFixed(1) : "0"}% resolution rate`}
+          icon={CheckCircle2}
+          tone="teal"
+        />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
@@ -271,20 +371,20 @@ function CaseAnalytics() {
 
         <ChartCard title="Fraud by Region" description="Select a region to focus insights">
           <ResponsiveContainer width="100%" height={235}>
-            <BarChart data={caseData.regions} layout="vertical" margin={{ top: 0, right: 10, left: 12, bottom: 0 }}>
+            <BarChart data={regionRows} layout="vertical" margin={{ top: 0, right: 10, left: 12, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
               <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
               <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={tooltipStyle} formatter={(value) => [metric === "cases" ? value : `₹${value} Cr`, metric === "cases" ? "Cases" : "Amount"]} />
-              <Bar dataKey={regionMetric} radius={[0, 4, 4, 0]} onClick={(entry) => setSelectedRegion(entry.name)} cursor="pointer">
-                {caseData.regions.map((region) => (
-                  <Cell key={region.name} fill={region.name === selectedRegion ? chartColors.primary : "#bfdbfe"} />
+              <Bar dataKey={regionMetric} radius={[0, 4, 4, 0]} onClick={(entry) => setPickedRegion(entry.name)} cursor="pointer">
+                {regionRows.map((region) => (
+                  <Cell key={region.name} fill={region.name === focusRegion?.name ? chartColors.primary : "#bfdbfe"} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
           <p className="mt-1 text-xs text-muted-foreground">
-            Selected: <span className="font-medium text-foreground">{selectedRegion}</span> · {caseData.regions.find((region) => region.name === selectedRegion)[regionMetric]}{regionUnit}
+            Selected: <span className="font-medium text-foreground">{focusRegion?.name ?? "—"}</span> · {focusRegion ? `${focusRegion[regionMetric]}${regionUnit}` : "no data"}
           </p>
         </ChartCard>
       </div>
@@ -293,8 +393,8 @@ function CaseAnalytics() {
         <ChartCard title="Case Risk Distribution" description="Current portfolio risk mix">
           <ResponsiveContainer width="100%" height={190}>
             <PieChart>
-              <Pie data={caseData.risk} dataKey="value" nameKey="name" innerRadius={52} outerRadius={76} paddingAngle={3}>
-                {caseData.risk.map((item) => <Cell key={item.name} fill={item.color} />)}
+              <Pie data={riskMix} dataKey="value" nameKey="name" innerRadius={52} outerRadius={76} paddingAngle={3}>
+                {riskMix.map((item) => <Cell key={item.name} fill={item.color} />)}
               </Pie>
               <Tooltip contentStyle={tooltipStyle} formatter={(value, name) => [value, name]} />
               <Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
@@ -303,7 +403,7 @@ function CaseAnalytics() {
         </ChartCard>
         <ChartCard title="Case Status" description="Cases by workflow stage">
           <ResponsiveContainer width="100%" height={190}>
-            <BarChart data={caseData.status} margin={{ top: 8, right: 0, left: -22, bottom: 0 }}>
+            <BarChart data={statusMix} margin={{ top: 8, right: 0, left: -22, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
               <XAxis dataKey="name" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
@@ -331,9 +431,11 @@ function CaseAnalytics() {
           <CardTitle className="text-sm font-medium">Conclusion</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground">
-          Case activity is trending upward, with critical cases requiring continued escalation
-          attention. {selectedRegion} is the current focus region, while the majority of the
-          portfolio remains in medium or low risk categories.
+          {windowCases} {windowCases === 1 ? "case was" : "cases were"} filed in the last {days} days
+          totalling {crores(windowAmount)}.{" "}
+          {focusRegion ? `${focusRegion.name} is the current focus region with ${focusRegion.cases} cases, ` : ""}
+          and {pct(riskMix.filter((r) => r.name !== "Low" && r.value).reduce((s, r) => s + r.value, 0) / (totals.total || 1))}{" "}
+          of the portfolio sits above low priority.
         </CardContent>
       </Card>
     </div>
@@ -342,53 +444,189 @@ function CaseAnalytics() {
 
 function ModelAnalytics() {
   const [showDetails, setShowDetails] = useState(false);
+  const m = mlMetrics;
+
+  /*
+   * Confidence histogram over every ATM the model has scored. These are the live
+   * per-ATM confidences the watchlist already renders, not a stored distribution.
+   */
+  const confidenceBands = useMemo(() => {
+    const bands = [
+      { range: "0–20%", lo: 0, hi: 20, value: 0 },
+      { range: "20–40%", lo: 20, hi: 40, value: 0 },
+      { range: "40–60%", lo: 40, hi: 60, value: 0 },
+      { range: "60–80%", lo: 60, hi: 80, value: 0 },
+      { range: "80–100%", lo: 80, hi: 100.0001, value: 0 },
+    ];
+    for (const atm of allAtms) {
+      const c = Number(atm.confidence);
+      const band = bands.find((b) => Number.isFinite(c) && c >= b.lo && c < b.hi);
+      if (band) band.value += 1;
+    }
+    return bands;
+  }, []);
+
+  const highConfidence = useMemo(
+    () => allAtms.filter((a) => Number(a.confidence) >= 80).length,
+    []
+  );
+
+  if (!m?.available) {
+    return (
+      <Card>
+        <CardHeader className="px-5 py-4">
+          <CardTitle className="text-sm font-medium">ML Model Analytics</CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-5 text-sm text-muted-foreground">
+          No completed model evaluation is available
+          {m?.reason ? `: ${m.reason}` : ""}. Run{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">npm run sync</code> in{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">backend</code> to record one.
+          {allAtms.length > 0 && (
+            <p className="mt-3">
+              The live model has still scored {allAtms.length} ATMs; only the held-out
+              evaluation is missing.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const matrix = m.matrix;
+  const classes = matrix.classes;
+  const fpTotal = matrix.counts.reduce((s, c) => s + c.fp, 0);
+  const fnTotal = matrix.counts.reduce((s, c) => s + c.fn, 0);
+  const perClass = m.perClass.map((row) => ({
+    name: row.class,
+    precision: Number((row.precision * 100).toFixed(1)),
+    recall: Number((row.recall * 100).toFixed(1)),
+    f1: Number((row.f1 * 100).toFixed(1)),
+    support: row.support,
+  }));
+  const importance = Object.entries(m.featureImportance || {}).sort((a, b) => b[1] - a[1]);
+  const evaluatedOn = m.evaluatedAt ? String(m.evaluatedAt).slice(0, 10) : "—";
+
+  /*
+   * Row = actual class, column = predicted class. On the diagonal a sample was
+   * classified correctly (true positive for that class); off it, the sample truly
+   * belonged to the row class but was predicted as the column class, which is a
+   * false negative of the predicted class.
+   */
+  const cellFor = (actualIndex, predictedIndex) => {
+    const hit = actualIndex === predictedIndex;
+    return {
+      value: hit ? matrix.counts[actualIndex].tp : matrix.counts[predictedIndex].fn,
+      label: hit ? "correct" : "misclassified",
+      tone: hit ? "bg-teal-50 text-teal-800" : "bg-amber-50 text-amber-800",
+    };
+  };
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Model Accuracy" value="91.6%" detail="+2.3% since last evaluation" icon={Gauge} />
-        <KpiCard label="Precision" value="94.0%" detail="Low false-positive rate" icon={Target} tone="teal" />
-        <KpiCard label="Recall" value="92.2%" detail="Fraud capture remains strong" icon={Activity} tone="amber" />
-        <KpiCard label="F1 Score" value="93.1%" detail="Balanced model performance" icon={BrainCircuit} tone="blue" />
+        <KpiCard
+          label="Model Accuracy"
+          value={pct(m.accuracy)}
+          detail={`${matrix.total}-case held-out test split`}
+          icon={Gauge}
+        />
+        <KpiCard
+          label="Precision"
+          value={pct(m.macroPrecision)}
+          detail={`${fpTotal} false positives across all classes`}
+          icon={Target}
+          tone="teal"
+        />
+        <KpiCard
+          label="Recall"
+          value={pct(m.macroRecall)}
+          detail={`${fnTotal} fraud cases missed`}
+          icon={Activity}
+          tone="amber"
+        />
+        <KpiCard
+          label="F1 Score"
+          value={pct(m.macroF1)}
+          detail="Macro average across classes"
+          icon={BrainCircuit}
+          tone="blue"
+        />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
-        <ChartCard title="Prediction Performance" description="Predicted versus actual fraud cases over time">
+        <ChartCard
+          title="Per-Class Performance"
+          description={`Measured on the ${matrix.total}-case held-out test split`}
+        >
           <ResponsiveContainer width="100%" height={235}>
-            <LineChart data={modelData.performance} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+            <BarChart data={perClass} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="day" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={tooltipStyle} />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+              <YAxis unit="%" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} domain={[0, 100]} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(value) => [`${value}%`]} />
               <Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
-              <Line type="monotone" dataKey="predicted" name="Predicted" stroke={chartColors.primary} strokeWidth={2.5} dot={false} />
-              <Line type="monotone" dataKey="actual" name="Actual" stroke={chartColors.teal} strokeWidth={2.5} dot={false} />
-            </LineChart>
+              <Bar dataKey="precision" name="Precision" fill={chartColors.primary} radius={[4, 4, 0, 0]} barSize={16} />
+              <Bar dataKey="recall" name="Recall" fill={chartColors.teal} radius={[4, 4, 0, 0]} barSize={16} />
+              <Bar dataKey="f1" name="F1" fill={chartColors.amber} radius={[4, 4, 0, 0]} barSize={16} />
+            </BarChart>
           </ResponsiveContainer>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Support: {perClass.map((c) => `${c.name} ${c.support}`).join(" · ")}
+          </p>
         </ChartCard>
 
-        <ChartCard title="Confusion Matrix" description="Evaluation set: 500 predictions">
-          <div className="grid grid-cols-[28px_70px_1fr_1fr] gap-2 text-center text-xs">
-            <div className="row-span-3 row-start-2 flex items-center justify-center font-medium text-muted-foreground [writing-mode:vertical-rl] rotate-180">
-              Predicted
+        <ChartCard
+          title="Confusion Matrix"
+          description={`Evaluation set: ${matrix.total} held-out predictions`}
+        >
+          <div className="space-y-1.5">
+            <div
+              className="grid gap-1.5 text-center text-[10px] font-medium text-muted-foreground"
+              style={{ gridTemplateColumns: `72px repeat(${classes.length}, minmax(0, 1fr))` }}
+            >
+              <span />
+              {classes.map((c) => (
+                <span key={c}>Pred {c}</span>
+              ))}
             </div>
-            <div className="col-start-3 col-span-2 row-start-1 pb-1 font-medium text-muted-foreground">Actual</div>
-            <div className="col-start-3 row-start-2 font-medium text-muted-foreground">Fraud</div>
-            <div className="col-start-4 row-start-2 font-medium text-muted-foreground">Normal</div>
-            <div className="col-start-2 row-start-3 flex items-center justify-end pr-2 font-medium text-muted-foreground">Fraud</div>
-            <div className="col-start-3 row-start-3 rounded-lg bg-teal-50 p-3 text-teal-800"><p className="text-lg font-semibold">284</p><p>TP · 56.8%</p></div>
-            <div className="col-start-4 row-start-3 rounded-lg bg-red-50 p-3 text-red-700"><p className="text-lg font-semibold">18</p><p>FP · 3.6%</p></div>
-            <div className="col-start-2 row-start-4 flex items-center justify-end pr-2 font-medium text-muted-foreground">Normal</div>
-            <div className="col-start-3 row-start-4 rounded-lg bg-amber-50 p-3 text-amber-800"><p className="text-lg font-semibold">24</p><p>FN · 4.8%</p></div>
-            <div className="col-start-4 row-start-4 rounded-lg bg-blue-50 p-3 text-blue-800"><p className="text-lg font-semibold">174</p><p>TN · 34.8%</p></div>
+            {classes.map((actual, i) => (
+              <div
+                key={actual}
+                className="grid gap-1.5 text-center text-[11px]"
+                style={{ gridTemplateColumns: `72px repeat(${classes.length}, minmax(0, 1fr))` }}
+              >
+                <span className="flex items-center justify-end pr-1 font-medium text-muted-foreground">
+                  Actual {actual}
+                </span>
+                {classes.map((_predicted, j) => {
+                  const cell = cellFor(i, j);
+                  return (
+                    <div key={j} className={cn("rounded-lg px-1 py-2", cell.tone)}>
+                      <p className="text-sm font-semibold">{cell.value}</p>
+                      <p className="text-[10px] opacity-75">{cell.label}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
+          {!matrix.consistent && (
+            <p className="mt-2 text-[11px] text-amber-700">
+              Reconstructed from per-class scores; its diagonal does not reproduce the
+              recorded accuracy of {pct(m.accuracy)}.
+            </p>
+          )}
         </ChartCard>
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-[1fr_1.2fr]">
-        <ChartCard title="Model Confidence Distribution" description="Predictions by confidence range">
+        <ChartCard
+          title="Model Confidence Distribution"
+          description={`Live per-ATM confidence across ${allAtms.length} scored ATMs`}
+        >
           <ResponsiveContainer width="100%" height={190}>
-            <BarChart data={modelData.confidence} margin={{ top: 8, right: 0, left: -22, bottom: 0 }}>
+            <BarChart data={confidenceBands} margin={{ top: 8, right: 0, left: -22, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
               <XAxis dataKey="range" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
@@ -415,10 +653,10 @@ function ModelAnalytics() {
               </Button>
             </CardHeader>
             <CardContent className="grid gap-3 p-5 sm:grid-cols-2">
-              <div><p className="text-xs text-muted-foreground">Current accuracy</p><p className="mt-1 text-sm font-semibold">91.6%</p></div>
-              <div><p className="text-xs text-muted-foreground">High-confidence predictions</p><p className="mt-1 text-sm font-semibold">72.8%</p></div>
-              <div><p className="text-xs text-muted-foreground">False-positive rate</p><p className="mt-1 text-sm font-semibold">3.6%</p></div>
-              <div><p className="text-xs text-muted-foreground">Last model evaluation</p><p className="mt-1 text-sm font-semibold">24 Sep 2026</p></div>
+              <div><p className="text-xs text-muted-foreground">Current accuracy</p><p className="mt-1 text-sm font-semibold">{pct(m.accuracy)}</p></div>
+              <div><p className="text-xs text-muted-foreground">High-confidence ATMs</p><p className="mt-1 text-sm font-semibold">{allAtms.length ? pct(highConfidence / allAtms.length) : "—"}</p></div>
+              <div><p className="text-xs text-muted-foreground">False-positive rate</p><p className="mt-1 text-sm font-semibold">{matrix.total ? pct(fpTotal / matrix.total) : "—"}</p></div>
+              <div><p className="text-xs text-muted-foreground">Last model evaluation</p><p className="mt-1 text-sm font-semibold">{evaluatedOn}</p></div>
             </CardContent>
           </Card>
           {showDetails && (
@@ -435,20 +673,48 @@ function ModelAnalytics() {
               <CardContent className="space-y-3 p-5 text-xs text-muted-foreground">
                 <div className="flex items-start justify-between gap-4">
                   <span>Evaluation sample</span>
-                  <span className="font-medium text-foreground">500 verified predictions</span>
+                  <span className="font-medium text-foreground">{matrix.total} held-out predictions</span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span>Fraud cases correctly identified</span>
-                  <span className="font-medium text-foreground">284 of 308</span>
+                  <span>Model version</span>
+                  <span className="font-medium text-foreground">{m.modelVersion || "—"}</span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span>High-confidence threshold</span>
-                  <span className="font-medium text-foreground">80% or above</span>
+                  <span>Classified correctly</span>
+                  <span className="font-medium text-foreground">
+                    {matrix.counts.reduce((s, c) => s + c.tp, 0)} of {matrix.total}
+                  </span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span>Recommended review</span>
-                  <span className="font-medium text-foreground">Re-evaluate after 30 days</span>
+                  <span>Most important feature</span>
+                  <span className="font-medium text-foreground">
+                    {importance.length ? `${importance[0][0]} (${(importance[0][1] * 100).toFixed(1)}%)` : "—"}
+                  </span>
                 </div>
+                <div>
+                  <p className="mb-1.5">Feature importance</p>
+                  <div className="space-y-1">
+                    {importance.map(([name, value]) => (
+                      <div key={name} className="flex items-center gap-2">
+                        <span className="w-40 shrink-0 truncate">{name.replace(/_/g, " ")}</span>
+                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                          <span
+                            className="block h-full rounded-full bg-primary"
+                            style={{ width: `${Math.max(2, value * 100)}%` }}
+                          />
+                        </span>
+                        <span className="w-12 shrink-0 text-right font-medium text-foreground">
+                          {(value * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {m.notes && (
+                  <p className="rounded-md border border-amber-200 bg-amber-50/60 p-2 text-[11px] text-amber-900">
+                    {m.notes}
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
@@ -459,9 +725,16 @@ function ModelAnalytics() {
           <CardTitle className="text-sm font-medium">Conclusion</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground">
-          The model is performing reliably, identifying most fraud cases with strong precision
-          and recall. Its low false-positive rate and high-confidence prediction share support
-          using it as a prioritisation aid alongside investigator review.
+          The {m.algorithm || "model"} ({m.modelVersion || "unversioned"}) classified{" "}
+          {matrix.counts.reduce((s, c) => s + c.tp, 0)} of {matrix.total} held-out cases
+          correctly ({pct(m.accuracy)}), with the weakest recall on{" "}
+          {perClass.length
+            ? perClass.reduce((worst, c) => (c.recall < worst.recall ? c : worst)).name
+            : "—"}{" "}
+          risk. {alerts.length} alerts are currently raised across the live ATM network.
+          {m.notes
+            ? " These figures describe fit to the current dataset, not real-world fraud performance."
+            : ""}
         </CardContent>
       </Card>
     </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
@@ -38,10 +38,13 @@ import PageHeader from "@/components/command/PageHeader";
 import CallerLocationAtmRiskZone from "@/components/command/CallerLocationAtmRiskZone";
 import { getActionStatusLabel } from "@/lib/caseActionStore";
 import { useCaseActions } from "@/hooks/useCaseActions";
-import { cases, formatINR, muleChains, suspects } from "@/lib/investigationData";
+import { cases, formatINR, muleChains, suspects, regions, atmRankings, callCity as callCityByCase, cashoutPatterns } from "@/lib/investigationData";
 import { cn } from "@/lib/utils";
 
 function flattenChain(node, acc = []) {
+  // A case whose complaint has no traced hops yet still resolves, so tolerate a missing
+  // chain rather than throwing and blanking the page.
+  if (!node) return acc;
   acc.push(node);
   if (node.children) {
     node.children.forEach((child) => flattenChain(child, acc));
@@ -87,13 +90,25 @@ const buildRiskFactors = (atm) => {
     factors.push(`Model predicted ${atm.predictedRiskLevel} risk at ${atm.predictionConfidence}% confidence`);
   }
 
-  if (atm.fraudAmount) {
+  if (atm.fraudAmount && atm.fraudAmount !== "—") {
     factors.push(`${atm.fraudAmount} associated fraud value identified in historical activity`);
   }
 
   if (atm.predictedWindow) {
     factors.push(
       `Predicted cash-out window overlaps with the region's highest-risk period (${atm.predictedWindow})`
+    );
+  }
+
+  /*
+   * Feature attribution, when the row carries the model's inputs. These are the five
+   * columns the Random Forest was trained on, so the explanation names the same values
+   * the model actually saw rather than a generic statement.
+   */
+  if (atm.features) {
+    const { historical_fraud_count: fraudCount, cctv_coverage: cctv, lighting_score: lighting } = atm.features;
+    factors.push(
+      `Site features: ${fraudCount} prior fraud incidents, CCTV coverage ${cctv}/100, lighting ${lighting}/100`
     );
   }
 
@@ -113,153 +128,66 @@ const riskTone = {
   low: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
 };
 
-const regionScores = [
-  {
-    id: "maharashtra-pune",
-    name: "Pune",
-    confidence: 96.8,
-    matchedAtms: 23,
-    risk: "Very high",
-    callOrigin: "Western India / Pune caller pattern",
-    reasons: [
-      "Historical mule freeze pattern aligns with Pune ATM corridor activity and nearby withdrawals.",
-      "The suspected caller location and victim coordination pattern both map to the Pune metro region.",
-      "Multiple high-volume cash-outs were observed from ICICI and Axis machines in the same corridor window.",
-    ],
-    markers: [
-      { x: 38, y: 58 },
-      { x: 50, y: 46 },
-      { x: 68, y: 63 },
-    ],
-  },
-  {
-    id: "delhi-ncr",
-    name: "Delhi NCR",
-    confidence: 92.4,
-    matchedAtms: 18,
-    risk: "High",
-    callOrigin: "North India / NCR spoofing pattern",
-    reasons: [
-      "The scammer call origin and mule movement history cluster around the NCR spread pattern.",
-      "This region shows repeated ATM outflows in urban-population-heavy corridors with fast conversion behavior.",
-      "The model identified a second-stage link from fake-loan and SIM-swap activity across Delhi and Noida.",
-    ],
-    markers: [
-      { x: 53, y: 42 },
-      { x: 58, y: 48 },
-      { x: 62, y: 54 },
-    ],
-  },
-  {
-    id: "mumbai-west",
-    name: "Mumbai West",
-    confidence: 87.1,
-    matchedAtms: 15,
-    risk: "Elevated",
-    callOrigin: "Western India / Mumbai contact pattern",
-    reasons: [
-      "Mumbai-linked mule activity is consistent with historical freeze zones and ATM cash-out bursts.",
-      "The scammer's call pattern overlaps with Mumbai-based victim tracing and account access attempts.",
-      "A former linked case showed similar conversion timing around west-suburban banking hubs.",
-    ],
-    markers: [
-      { x: 36, y: 42 },
-      { x: 42, y: 50 },
-      { x: 48, y: 60 },
-    ],
-  },
-  {
-    id: "hyderabad-south",
-    name: "Hyderabad South",
-    confidence: 74.3,
-    matchedAtms: 9,
-    risk: "Moderate",
-    callOrigin: "South India / Hyderabad contact pattern",
-    reasons: [
-      "This region scored lower but still shows a repeated cash-out pattern tied to a historical mule network.",
-      "The call origin and bank activity trend reflect a weaker but still plausible south-zone conversion route.",
-      "ATM clusters here match lower-frequency historical withdrawals and a shorter conversion window.",
-    ],
-    markers: [
-      { x: 58, y: 68 },
-      { x: 64, y: 72 },
-      { x: 72, y: 64 },
-    ],
-  },
-  {
-    id: "bengaluru-east",
-    name: "Bengaluru East",
-    confidence: 68.9,
-    matchedAtms: 7,
-    risk: "Moderate",
-    callOrigin: "South India / Bengaluru contact pattern",
-    reasons: [
-      "Historical mule-account activity shows a smaller but recurring cash-out cluster in eastern Bengaluru.",
-      "The caller's location has a moderate overlap with this region's transaction and device signals.",
-      "ATM usage is less concentrated than the higher-ranked regions but remains consistent with the model's secondary route.",
-    ],
-  },
-  {
-    id: "kolkata-central",
-    name: "Kolkata Central",
-    confidence: 61.5,
-    matchedAtms: 5,
-    risk: "Watch",
-    callOrigin: "East India / Kolkata call-origin pattern",
-    reasons: [
-      "The region has a limited historical match to the mule-account network under investigation.",
-      "Call-location signals produce a weaker east-zone correlation than the leading predictions.",
-      "A small number of ATM corridors show timing similarities with the suspected cash-out sequence.",
-    ],
-  },
-  {
-    id: "jaipur-north",
-    name: "Jaipur North",
-    confidence: 57.2,
-    matchedAtms: 4,
-    risk: "Watch",
-    callOrigin: "North-west India / Jaipur contact pattern",
-    reasons: [
-      "The model found a low-frequency historical relationship between the account and Jaipur-area ATMs.",
-      "Caller-location evidence provides a small supporting signal for this north-west region.",
-      "The predicted ATM activity is sparse and therefore carries lower confidence.",
-    ],
-  },
-];
+// Regions and the per-region ATM watchlist now come from the live model via
+// `investigationData.js` (generated by `npm run sync`), so they are no longer defined
+// here. Each region is a city present in the ATM table, scored by the mean severity of
+// its ATMs; each watchlist row is a real ATM with its linked case count and fraud value.
 
-const atmRankings = {
-  "maharashtra-pune": [
-    { rank: 1, atm: "ATM-001", location: "FC Road", riskScore: 94, linkedCases: 12, fraudAmount: "₹4.8L", predictedWindow: "20:00–22:00", status: "Critical" },
-    { rank: 2, atm: "ATM-014", location: "Andheri East", riskScore: 89, linkedCases: 10, fraudAmount: "₹3.6L", predictedWindow: "21:00–23:00", status: "High" },
-    { rank: 3, atm: "ATM-021", location: "Camp Area", riskScore: 86, linkedCases: 8, fraudAmount: "₹2.9L", predictedWindow: "22:00–00:00", status: "High" },
-    { rank: 4, atm: "ATM-037", location: "Hinjewadi Phase 1", riskScore: 81, linkedCases: 6, fraudAmount: "₹2.1L", predictedWindow: "19:00–21:00", status: "Elevated" },
-    { rank: 5, atm: "ATM-042", location: "Kothrud Depot", riskScore: 78, linkedCases: 5, fraudAmount: "₹1.8L", predictedWindow: "20:00–22:00", status: "Elevated" },
-    { rank: 6, atm: "ATM-056", location: "Viman Nagar", riskScore: 76, linkedCases: 5, fraudAmount: "₹1.6L", predictedWindow: "21:00–23:00", status: "Elevated" },
-    { rank: 7, atm: "ATM-063", location: "Kharadi Bypass", riskScore: 73, linkedCases: 4, fraudAmount: "₹1.4L", predictedWindow: "22:00–00:00", status: "Moderate" },
-    { rank: 8, atm: "ATM-071", location: "Shivajinagar", riskScore: 70, linkedCases: 4, fraudAmount: "₹1.2L", predictedWindow: "19:00–21:00", status: "Moderate" },
-    { rank: 9, atm: "ATM-084", location: "Wakad Bridge", riskScore: 68, linkedCases: 3, fraudAmount: "₹1.1L", predictedWindow: "20:00–22:00", status: "Moderate" },
-    { rank: 10, atm: "ATM-096", location: "Baner Road", riskScore: 65, linkedCases: 3, fraudAmount: "₹0.9L", predictedWindow: "21:00–23:00", status: "Moderate" },
-    { rank: 11, atm: "ATM-103", location: "Pimpri Market", riskScore: 62, linkedCases: 2, fraudAmount: "₹0.8L", predictedWindow: "22:00–00:00", status: "Watch" },
-    { rank: 12, atm: "ATM-118", location: "Swargate Terminal", riskScore: 59, linkedCases: 2, fraudAmount: "₹0.6L", predictedWindow: "19:00–21:00", status: "Watch" },
-    { rank: 13, atm: "ATM-124", location: "Hadapsar Gadital", riskScore: 56, linkedCases: 1, fraudAmount: "₹0.5L", predictedWindow: "20:00–22:00", status: "Watch" },
-  ],
-  "delhi-ncr": [
-    { rank: 1, atm: "ATM-108", location: "Noida Sector 18", riskScore: 93, linkedCases: 11, fraudAmount: "₹4.2L", predictedWindow: "21:00–23:00", status: "Critical" },
-    { rank: 2, atm: "ATM-116", location: "Lajpat Nagar", riskScore: 88, linkedCases: 9, fraudAmount: "₹3.1L", predictedWindow: "20:00–22:00", status: "High" },
-    { rank: 3, atm: "ATM-127", location: "Dwarka Sector 10", riskScore: 83, linkedCases: 7, fraudAmount: "₹2.4L", predictedWindow: "22:00–00:00", status: "High" },
-  ],
-  "mumbai-west": [
-    { rank: 1, atm: "ATM-203", location: "Andheri West", riskScore: 91, linkedCases: 10, fraudAmount: "₹3.6L", predictedWindow: "21:00–23:00", status: "Critical" },
-    { rank: 2, atm: "ATM-214", location: "Bandra East", riskScore: 85, linkedCases: 8, fraudAmount: "₹2.8L", predictedWindow: "20:00–22:00", status: "High" },
-    { rank: 3, atm: "ATM-229", location: "Goregaon Link Road", riskScore: 79, linkedCases: 6, fraudAmount: "₹2.0L", predictedWindow: "22:00–00:00", status: "Elevated" },
-  ],
-};
+const regionId = (city) => String(city || "").toLowerCase().replace(/\s+/g, "-");
 
-const defaultAtmRankings = [
-  { rank: 1, atm: "ATM-301", location: "Central Business District", riskScore: 78, linkedCases: 6, fraudAmount: "₹1.8L", predictedWindow: "20:00–22:00", status: "Elevated" },
-  { rank: 2, atm: "ATM-314", location: "Market Road", riskScore: 72, linkedCases: 4, fraudAmount: "₹1.2L", predictedWindow: "21:00–23:00", status: "Moderate" },
-  { rank: 3, atm: "ATM-326", location: "Railway Station Road", riskScore: 68, linkedCases: 3, fraudAmount: "₹0.9L", predictedWindow: "22:00–00:00", status: "Moderate" },
-];
+/**
+ * Ranks regions for one case.
+ *
+ * Three inputs, all real:
+ *
+ * - `callCity` is where the call was placed from, so it is the default highest priority.
+ * - `cashoutPatterns` is the case's historical cash-out pattern: the cities that its
+ *   co-cashing-out cases (those sharing its predicted cash-out ATM) originated in. A region
+ *   with more of that history outranks one with less, so the call city is not guaranteed
+ *   to lead — when the pattern says another region is hotter, that region wins.
+ * - the ML risk index of the region's own ATMs.
+ *
+ * There is deliberately no per-region "RING" badge: the call city is expressed by being
+ * ranked first and reported as the default selection, not by a marker repeated on every
+ * region.
+ */
+function rankRegionsForCase(callCity, pattern) {
+  const callId = regionId(callCity);
+  const history = new Map((pattern?.cities || []).map((c) => [regionId(c.city), c.cases]));
+  const peers = pattern?.total || 0;
+
+  const ranked = regions.map((region) => {
+    const isCallCity = region.id === callId;
+    // Share of this ATM's caseload that originated in this region.
+    const historyCases = history.get(region.id) || 0;
+    const historyShare = peers > 0 ? historyCases / peers : 0;
+    const callIdMatch = isCallCity ? 1 : 0;
+
+    /*
+     * Cash-out history dominates, because it is direct evidence for this specific case
+     * rather than a regional average. The call city gets a small prior so it leads when
+     * history is tied. The ML risk index only breaks ties between equally-exposed
+     * regions.
+     */
+    const score =
+      historyShare * 100 + callIdMatch * 0.5 + (region.confidence / 100) * 0.1;
+
+    return {
+      ...region,
+      isCallCity,
+      historyCases,
+      historyShare: Math.round(historyShare * 1000) / 10,
+      cashoutAtm: pattern?.atm || null,
+      peerCases: peers,
+      caseScore: Math.round(score * 100) / 100,
+    };
+  });
+
+  return ranked.sort((a, b) => {
+    if (b.caseScore !== a.caseScore) return b.caseScore - a.caseScore;
+    return a.name.localeCompare(b.name);
+  });
+}
 
 // Each entry carries the workflow metadata used by the confirmation panel, the
 // persisted record and the activity log, so the card, the dialog and the
@@ -337,7 +265,43 @@ export default function ATMIntelligence() {
   const requestedCaseId = searchParams.get("case");
   const initialCaseId = cases.some((item) => item.id === requestedCaseId) ? requestedCaseId : cases[0].id;
   const [caseId, setCaseId] = useState(initialCaseId);
-  const [selectedRegionId, setSelectedRegionId] = useState(regionScores[0].id);
+
+  // Declared before every consumer below: the per-case region memos read it, so
+  // referencing it before this line throws a temporal-dead-zone ReferenceError.
+  const activeCase = useMemo(() => cases.find((item) => item.id === caseId) ?? cases[0], [caseId]);
+
+  /*
+   * Per-case region inputs. `callCity` is keyed by case number, so this is a direct
+   * lookup, with the case's own branch as the fallback for a case filed after the last
+   * sync. The pattern is this case's historical cash-out history and drives the ranking.
+   */
+  const callCity = useMemo(
+    () => callCityByCase[activeCase.id] || activeCase.branch || null,
+    [activeCase]
+  );
+
+  const cashoutPattern = useMemo(() => cashoutPatterns[activeCase.id] || null, [activeCase]);
+
+  const rankedRegions = useMemo(
+    () => rankRegionsForCase(callCity, cashoutPattern),
+    [callCity, cashoutPattern]
+  );
+
+  /*
+   * Selection is per case. An explicit pick wins while the same case is active; with no
+   * pick, the top-ranked region is selected, so switching case re-ranks the list and
+   * re-centres the map, ATM rank box and details card on that case's own top region
+   * without the user having to re-pick.
+   */
+  const [pickedRegionId, setPickedRegionId] = useState(null);
+  const selectedRegion =
+    rankedRegions.find((region) => region.id === pickedRegionId) || rankedRegions[0];
+
+  // A new case must fall back to its own top-ranked region, not keep the previous pick.
+  useEffect(() => {
+    setPickedRegionId(null);
+  }, [caseId]);
+
   const [dialogRegion, setDialogRegion] = useState(null);
   const [selectedAtm, setSelectedAtm] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
@@ -346,8 +310,6 @@ export default function ATMIntelligence() {
   // owns the geography, so it reports them upward rather than the page recomputing it.
   const [callerCircleAtms, setCallerCircleAtms] = useState([]);
 
-  const activeCase = useMemo(() => cases.find((item) => item.id === caseId) ?? cases[0], [caseId]);
-
   const chain = muleChains[activeCase.muleChainId];
   const chainNodes = flattenChain(chain);
   const cashOutNodes = chainNodes.filter((node) => node.role && node.role.includes("cash-out"));
@@ -355,8 +317,18 @@ export default function ATMIntelligence() {
 
   const cashOutTotal = cashOutNodes.reduce((sum, node) => sum + Number(node.amount || 0), 0);
   const maxLayer = Math.max(...chainNodes.map((node) => Number(node.layer || 0)), 0);
-  const selectedRegion = regionScores.find((region) => region.id === selectedRegionId) || regionScores[0];
-  const selectedAtms = atmRankings[selectedRegion.id] || defaultAtmRankings;
+
+  // Watchlist rows for the selected region, straight from the generated data.
+  const selectedAtms = selectedRegion ? atmRankings[selectedRegion.id] || [] : [];
+
+  /*
+   * Any ATM open in the details card must be closed when the visible set changes,
+   * which happens either by picking another region or by switching case (the ring
+   * region changes with it).
+   */
+  useEffect(() => {
+    setSelectedAtm(null);
+  }, [selectedRegion?.id, caseId]);
 
   const atmDetails = selectedAtm
     ? {
@@ -467,7 +439,7 @@ export default function ATMIntelligence() {
     },
   ];
 
-  const handleRegionSelect = (region) => setSelectedRegionId(region.id);
+  const handleRegionSelect = (region) => setPickedRegionId(region.id);
 
   // Opening an ATM from the map runs its prediction row through the same adapter
   // the watchlist uses, so the details card reads identically wherever it opens.
@@ -481,7 +453,7 @@ export default function ATMIntelligence() {
       />
 
       <div className="flex flex-wrap items-center gap-3">
-        <CaseSelector cases={cases} value={caseId} onValueChange={setCaseId} className="w-[360px]" />
+      <CaseSelector cases={cases} value={caseId} onValueChange={setCaseId} className="w-[360px]" />
         <Badge className={cn("border px-2.5 py-1 text-xs font-medium", riskTone[activeCase.priority] || "bg-slate-500/10 text-slate-600")}>
           {activeCase.priority.toUpperCase()} priority
         </Badge>
@@ -520,7 +492,7 @@ export default function ATMIntelligence() {
               Cash-out region map
             </div>
             <Badge className="border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
-              {selectedRegion.confidence.toFixed(1)}% confidence
+              {selectedRegion?.caseScore.toFixed(1)} priority
             </Badge>
           </div>
 
@@ -529,20 +501,25 @@ export default function ATMIntelligence() {
             investigationCases={cases}
             onNearbyAtmsChange={setCallerCircleAtms}
             onAtmSelect={handleMapAtmSelect}
+            city={selectedRegion?.city || "ALL"}
+            towerCity={callCity || ""}
           />
         </div>
 
         <aside className="rounded-xl border bg-card p-3 shadow-sm">
           <div className="mb-2 border-b pb-2">
             <h3 className="text-base font-semibold text-foreground">Regions</h3>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Ranked for {activeCase.id} by cash-out pattern · call city {callCity}
+            </p>
           </div>
           <div className="max-h-[340px] space-y-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {regionScores.map((region) => (
+            {rankedRegions.map((region) => (
               <div
                 key={region.id}
                 className={cn(
                   "rounded-lg border p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-10px_rgb(15_23_42/0.25)]",
-                  selectedRegionId === region.id
+                  selectedRegion?.id === region.id
                     ? "border-primary/30 bg-primary/[0.03] ring-1 ring-primary/10"
                     : "border-border bg-background hover:border-foreground/15 hover:bg-accent"
                 )}
@@ -554,11 +531,18 @@ export default function ATMIntelligence() {
                     className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <span className="block text-sm font-medium text-foreground">{region.name}</span>
-                      <span className="shrink-0 text-sm font-semibold text-foreground">{region.confidence.toFixed(1)}%</span>
+                      <span className="block text-sm font-medium text-foreground">
+                        {region.name}
+                      </span>
+                      <span className="shrink-0 text-sm font-semibold text-foreground">
+                        {region.caseScore.toFixed(1)}
+                      </span>
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                      <span>{region.matchedAtms} ATM corridors</span>
+                      <span>
+                        {region.matchedAtms} ATMs · {region.highRisk} high ·{" "}
+                        {region.historyCases} of {region.peerCases} cash-outs
+                      </span>
                       <span className="rounded-full border border-amber-200 bg-amber-100 px-1.5 py-0.5 font-medium text-amber-700">
                         {region.risk}
                       </span>
@@ -585,12 +569,13 @@ export default function ATMIntelligence() {
           <div>
             <CardTitle className="text-base font-medium text-foreground">Ranked ATM Watchlist</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              Predicted cash-out locations for {selectedRegion.name}
+              Predicted cash-out locations for {selectedRegion?.name} · ranked by the model's
+              risk level
             </p>
           </div>
           <Badge className="border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
             {callerCircleAtms.length
-              ? `${selectedAtms.length} ranked · ${callerCircleAtms.length} in caller zone`
+              ? `${selectedAtms.length} ranked Â· ${callerCircleAtms.length} in caller zone`
               : `${selectedAtms.length} ranked ATMs`}
           </Badge>
         </CardHeader>
@@ -618,7 +603,16 @@ export default function ATMIntelligence() {
                     <td className="px-4 py-3 text-muted-foreground">{atm.fraudAmount}</td>
                     <td className="px-4 py-3 text-muted-foreground">{atm.predictedWindow}</td>
                     <td className="px-4 py-3">
-                      <Badge className="border border-red-200 bg-red-500/10 text-red-600">{atm.status}</Badge>
+                      <Badge
+                        className={cn(
+                          "border capitalize",
+                          atm.riskLevel === "HIGH" && "border-red-200 bg-red-500/10 text-red-600",
+                          atm.riskLevel === "MEDIUM" && "border-amber-200 bg-amber-500/10 text-amber-700",
+                          atm.riskLevel === "LOW" && "border-emerald-200 bg-emerald-500/10 text-emerald-600"
+                        )}
+                      >
+                        {atm.status}
+                      </Badge>
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -645,7 +639,7 @@ export default function ATMIntelligence() {
             <div>
               <CardTitle className="text-base font-medium text-foreground">ATM intelligence details</CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">
-                Detailed model output for {atmDetails.atm} in {selectedRegion.name}
+                Detailed model output for {atmDetails.atm} in {selectedRegion?.name}
               </p>
             </div>
             <button
@@ -690,8 +684,8 @@ export default function ATMIntelligence() {
               </div>
               <div className="mb-4 rounded-lg border bg-primary/[0.03] p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-muted-foreground">Model confidence</span>
-                  <span className="text-lg font-semibold text-foreground">{atmDetails.riskScore}%</span>
+                  <span className="text-xs text-muted-foreground">Risk index</span>
+                  <span className="text-lg font-semibold text-foreground">{atmDetails.riskScore}</span>
                 </div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
                   <div className="h-full rounded-full bg-primary" style={{ width: `${atmDetails.riskScore}%` }} />
@@ -722,36 +716,65 @@ export default function ATMIntelligence() {
             <CardHeader className="flex-row items-center justify-between space-y-0 border-b bg-muted/20">
               <div>
                 <CardTitle className="text-base font-medium text-foreground">Withdrawal prediction report</CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground">Current prediction for {selectedRegion.name}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Current prediction for {selectedRegion?.name}</p>
               </div>
               <ClipboardCopy className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent className="space-y-4 p-5">
               <div>
-                <p className="text-xs text-muted-foreground">Predicted risk</p>
-                <p className="mt-1 text-2xl font-semibold text-foreground">{selectedRegion.confidence.toFixed(1)}%</p>
+                <p className="text-xs text-muted-foreground">Region priority score</p>
+                <p className="mt-1 text-2xl font-semibold text-foreground">
+                  {selectedRegion?.caseScore.toFixed(1)}
+                </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Expected window</p>
-                <p className="mt-1 text-sm font-medium text-foreground">20:00–22:00</p>
+                <p className="text-xs text-muted-foreground">Cash-out pattern</p>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {selectedRegion?.historyCases} of {selectedRegion?.peerCases} cases cashing out
+                  via {selectedRegion?.cashoutAtm} originated in {selectedRegion?.name}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Link to this case</p>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {selectedRegion?.isCallCity
+                    ? `Call for ${activeCase.id} was placed from ${callCity}`
+                    : `Call was placed from ${callCity}`}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Linked cases / fraud value</p>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {selectedRegion?.linkedCases} cases ·{" "}
+                  {selectedRegion?.totalFraud ? formatINR(selectedRegion.totalFraud) : "no mapped value"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Expected cash-out window</p>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {selectedRegion?.predictedWindow || "Not enough timestamped data"}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Expected activity</p>
                 <p className="mt-1 text-sm font-medium text-foreground">
-                  {selectedRegion.confidence >= 80 ? "High" : selectedRegion.confidence >= 65 ? "Medium" : "Low"}
+                  {selectedRegion?.risk}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Confidence</p>
-                <p className="mt-1 text-sm font-medium text-foreground">{Math.max(selectedRegion.confidence - 3, 0).toFixed(1)}%</p>
+                <p className="text-xs text-muted-foreground">Model level breakdown</p>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {selectedRegion?.highRisk} high · {selectedRegion?.mediumRisk} medium ·{" "}
+                  {selectedRegion?.lowRisk} low
+                </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Prediction factors</p>
                 <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                  {["Recent fraud activity", "Historical withdrawal pattern", "Linked mule accounts", "Location proximity"].map((factor) => (
-                    <li key={factor} className="flex gap-2">
+                  {(selectedRegion?.reasons || []).map((reason) => (
+                    <li key={reason} className="flex gap-2">
                       <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                      <span>{factor}</span>
+                      <span>{reason}</span>
                     </li>
                   ))}
                 </ul>
@@ -819,7 +842,7 @@ export default function ATMIntelligence() {
                                 ? "border-emerald-200 bg-emerald-500/10 text-emerald-700"
                                 : "border-primary/20 bg-primary/5 text-primary"
                             )}
-                            title={record ? `${record.details} — recorded by ${record.performedBy}` : "Not initiated yet"}
+                            title={record ? `${record.details} â€” recorded by ${record.performedBy}` : "Not initiated yet"}
                           >
                             {isInitiated ? <Check className="h-2.5 w-2.5" /> : null}
                             {getActionStatusLabel(getStatus(action.actionType))}

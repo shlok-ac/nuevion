@@ -28,6 +28,41 @@ import { cn } from "@/lib/utils";
 const statuses = ["All", "Active", "Monitoring", "Escalated", "Under Investigation", "Resolved", "Closed"];
 const riskLevels = ["All", "Critical", "High", "Medium", "Low"];
 
+/** Cases shown per page. */
+const PAGE_SIZE = 100;
+
+/**
+ * Page numbers to render, with `null` marking an elision.
+ *
+ * Every page number is listed while the set is small enough to fit; past that only
+ * the first, last and a window around the current page are shown, so the control
+ * stays a fixed width as the case count grows.
+ */
+function buildPageList(currentPage, totalPages, window = 1) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const visible = new Set([1, totalPages, currentPage]);
+  for (let offset = 1; offset <= window; offset += 1) {
+    visible.add(currentPage - offset);
+    visible.add(currentPage + offset);
+  }
+
+  const sorted = [...visible]
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
+
+  const pages = [];
+  let previous = 0;
+  for (const page of sorted) {
+    if (previous && page - previous > 1) pages.push(null);
+    pages.push(page);
+    previous = page;
+  }
+  return pages;
+}
+
 function DateTimeInput({ type, value, onChange, ariaLabel, className }) {
   const inputRef = useRef(null);
   const Icon = type === "date" ? CalendarDays : Clock3;
@@ -171,6 +206,10 @@ export default function CaseManagement() {
     search: searchFromUrl,
   }));
 
+  // Current page, 1-based. Reset to 1 whenever the filter set changes so a narrower
+  // result set never lands the user on a page that no longer exists.
+  const [page, setPage] = useState(1);
+
   useEffect(() => {
     setFilters((current) =>
       current.search === searchFromUrl ? current : { ...current, search: searchFromUrl }
@@ -219,8 +258,30 @@ export default function CaseManagement() {
     );
   }, [filters]);
 
+  // The result set can also change from outside the filter controls (a re-sync of the
+  // generated dataset), so clamp rather than trusting the stored page number.
+  const totalPages = Math.max(1, Math.ceil(filteredCases.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+
+  useEffect(() => {
+    if (page !== currentPage) setPage(currentPage);
+  }, [page, currentPage]);
+
+  const pagedCases = useMemo(
+    () => filteredCases.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filteredCases, currentPage]
+  );
+
+  const firstShown = filteredCases.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
+  const lastShown = Math.min(currentPage * PAGE_SIZE, filteredCases.length);
+  const pageList = useMemo(
+    () => buildPageList(currentPage, totalPages),
+    [currentPage, totalPages]
+  );
+
   const updateFilter = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
+    setPage(1);
 
     if (key === "search") {
       const nextParams = new URLSearchParams(searchParams);
@@ -232,6 +293,7 @@ export default function CaseManagement() {
 
   const resetFilters = () => {
     setFilters(initialFilters);
+    setPage(1);
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete("search");
     setSearchParams(nextParams, { replace: true });
@@ -341,7 +403,7 @@ export default function CaseManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCases.map((caseItem) => (
+                {pagedCases.map((caseItem) => (
                   <TableRow key={caseItem.id} className="group border-b border-border/60 hover:bg-muted/30">
                     <TableCell className="whitespace-nowrap px-5 py-5 font-mono text-sm font-semibold tracking-tight text-foreground">
                       {caseItem.id}
@@ -391,11 +453,56 @@ export default function CaseManagement() {
             </p>
           )}
           <div className="flex flex-col gap-3 border-t bg-muted/10 px-5 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <span>Showing {filteredCases.length ? 1 : 0}–{filteredCases.length} (max 100) of {filteredCases.length} cases</span>
+            <span>
+              Showing {firstShown}–{lastShown} of {filteredCases.length} cases
+            </span>
             <nav className="flex items-center gap-1" aria-label="Case table pagination">
-              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled aria-label="Previous page">‹</Button>
-              <Button type="button" variant="secondary" size="sm" className="h-7 min-w-7 px-2 text-xs" aria-current="page">1</Button>
-              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled aria-label="Next page">›</Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={currentPage === 1}
+                aria-label="Previous page"
+              >
+                ‹
+              </Button>
+              {pageList.map((pageNumber, index) =>
+                pageNumber === null ? (
+                  <span
+                    key={`gap-${index}`}
+                    aria-hidden="true"
+                    className="px-1 text-xs text-muted-foreground"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <Button
+                    key={pageNumber}
+                    type="button"
+                    variant={pageNumber === currentPage ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 min-w-7 px-2 text-xs tabular-nums"
+                    onClick={() => setPage(pageNumber)}
+                    aria-current={pageNumber === currentPage ? "page" : undefined}
+                    aria-label={`Page ${pageNumber}`}
+                  >
+                    {pageNumber}
+                  </Button>
+                )
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                disabled={currentPage === totalPages}
+                aria-label="Next page"
+              >
+                ›
+              </Button>
             </nav>
           </div>
         </CardContent>

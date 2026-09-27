@@ -4,6 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet, AlertTriangle, Snowflake, Users, Activity } from "lucide-react";
 import { cases, suspects, alerts, formatINR } from "@/lib/investigationData";
 
+/*
+ * The live feed is scrollable at a fixed height, matching the treatment applied to
+ * the case and alert queues in CaseQueue.jsx.
+ *
+ * Its height is deliberately larger than the queues' 19rem: the feed is a full-width
+ * strip at the bottom of the dashboard where reading a longer history is useful, and
+ * the original height (which only ever had to fit the five mock alerts) is now far
+ * too short to be worth restoring.
+ */
+const FEED_HEIGHT = "h-[26rem]";
+
 export default function CommandDashboard() {
   const totalAtRisk = cases.reduce((s, c) => s + c.amount, 0);
   const frozen = cases.filter((c) => c.status === "frozen").length;
@@ -53,15 +64,22 @@ export default function CommandDashboard() {
           </CardTitle>
         </CardHeader>
         <div aria-hidden="true" className="mx-6 h-px bg-blue-500/30" />
-        <CardContent className="space-y-2 pt-5 text-sm">
-          {alerts.map((a) => (
-            <div key={a.id} className="flex items-center justify-between border-b pb-2 last:border-0">
-              <span>
-                <span className="font-medium">{a.caseId}</span> — {a.message}
-              </span>
-              <span className="text-muted-foreground">{a.time}</span>
-            </div>
-          ))}
+        <CardContent className="pt-5 text-sm">
+          <div
+            className={`scrollbar-none space-y-2 overflow-y-auto overscroll-contain pr-1 ${FEED_HEIGHT}`}
+            tabIndex={0}
+            role="region"
+            aria-label={`Live activity feed, ${alerts.length} entries, newest first`}
+          >
+            {alerts.map((a) => (
+              <div key={a.id} className="flex items-center justify-between border-b pb-2 last:border-0">
+                <span>
+                  <span className="font-medium">{a.caseId}</span> — {a.message}
+                </span>
+                <span className="shrink-0 pl-3 text-muted-foreground">{a.time}</span>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -90,3 +90,22 @@
     @apply bg-background text-foreground font-body;
   }
 }
+
+@layer utilities {
+  /*
+   * Hides the scrollbar on a scrollable region while leaving wheel, touch and
+   * keyboard scrolling intact.
+   *
+   * Used by the fixed-height dashboard lists. Because the scrollbar is removed with
+   * `display: none` rather than being made transparent, no gutter is reserved, so
+   * the content does not reflow when the list becomes scrollable.
+   */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}

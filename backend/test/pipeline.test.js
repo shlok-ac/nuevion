@@ -1,0 +1,230 @@
+/**
+ * End-to-end pipeline checks against a live API.
+ *
+ * Run with: node backend/test/pipeline.test.js
+ * Requires the server on http://localhost:5000 (npm run dev) and a seeded database.
+ */
+const assert = require("node:assert");
+
+const BASE = process.env.API_BASE || "http://localhost:5000";
+
+const get = async (path) => {
+  const res = await fetch(`${BASE}${path}`);
+  assert.ok(res.ok, `GET ${path} -> ${res.status}`);
+  return res.json();
+};
+
+const post = async (path, body) => {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  assert.ok(res.ok, `POST ${path} -> ${res.status}`);
+  return res.json();
+};
+
+const checks = [];
+const check = (name, fn) => checks.push({ name, fn });
+
+check("health reports a seeded database", async () => {
+  const health = await get("/api/v1/health");
+  assert.ok(health.complaints > 0, "expected complaints in the database");
+  assert.ok(health.cases > 0, "expected cases in the database");
+  assert.ok(health.muleHops > 0, "expected money-trail hops in the database");
+});
+
+check("portal complaint lands in the database and provisions a case", async () => {
+  const before = await get("/api/v1/health");
+  const filed = await post("/api/v1/complaints", {
+    complainantName: "Pipeline Test Citizen",
+    phone: "9876543210",
+    bankName: "HDFC Bank",
+    fraudAmount: 750000,
+    transactionType: "UPI",
+    location: "Pune",
+    description: "Pipeline verification complaint",
+    source: "PORTAL",
+  });
+
+  assert.ok(filed.complaintNumber, "expected a server-issued complaint number");
+  assert.ok(filed.caseNumber, "expected an auto-provisioned case");
+
+  const stored = await get(`/api/v1/complaints/${filed.complaintNumber}`);
+  assert.strictEqual(stored.complainant_name, "Pipeline Test Citizen");
+  assert.strictEqual(stored.fraud_amount, 750000);
+  assert.strictEqual(stored.source, "PORTAL");
+
+  const kase = await get(`/api/v1/cases/${filed.caseNumber}`);
+  assert.strictEqual(kase.complaint.complaint_number, filed.complaintNumber);
+  assert.ok(kase.alerts.length > 0, "expected an alert on the new case");
+
+  const after = await get("/api/v1/health");
+  assert.strictEqual(after.complaints, before.complaints + 1);
+});
+
+check("helpline transcript is extracted and persisted", async () => {
+  const result = await post("/api/v1/nlp/extract", {
+    transcript:
+      "Mera naam Ramesh Kumar hai, main Pune se bol raha hoon. Maine UPI se 4 lakh 20 hazaar rupay bheje the merchant@axis par. Mera HDFC Bank ka account hai.",
+  });
+
+  const e = result.extracted;
+  assert.strictEqual(e.complainant_name, "Ramesh Kumar");
+  assert.strictEqual(e.stolen_amount_inr, 420000, "compound lakh/hazaar amount must parse");
+  assert.strictEqual(e.transfer_mode, "UPI");
+  assert.strictEqual(e.location, "Pune");
+  assert.ok(e.mule_accounts.includes("merchant@axis"), "expected the VPA as a mule identifier");
+
+  const stored = await get(`/api/v1/complaints/${result.complaintNumber}`);
+  assert.strictEqual(stored.source, "HELPLINE_NLP");
+  assert.strictEqual(stored.fraud_amount, 420000);
+
+  const extractions = await get("/api/v1/nlp/extractions?limit=5");
+  assert.ok(extractions.length > 0, "expected the extraction to be recorded");
+});
+
+check("money trail returns the real hop chain", async () => {
+  const trail = await get("/api/v1/money-trail/CMP100001");
+  assert.strictEqual(trail.hopCount, 3, "expected three hops for the seeded complaint");
+  assert.strictEqual(trail.hops[0].from_account, "ACC0001V");
+  assert.strictEqual(trail.hops[0].to_account, "ACC0001M1");
+  assert.strictEqual(trail.hops[2].to_account, "ACC0001M3");
+  assert.ok(trail.cashout, "expected a predicted cash-out ATM");
+  assert.ok(trail.cashout.atm_id, "expected the cash-out ATM id");
+});
+
+check("ML model trains and reports measured metrics", async () => {
+  const { metrics } = await post("/api/v1/ml/retrain", {});
+  assert.ok(metrics.accuracy > 0.5, `expected a usable accuracy, got ${metrics.accuracy}`);
+  assert.ok(metrics.accuracy <= 1, "accuracy must be a fraction");
+  assert.strictEqual(metrics.perClass.length, 3, "expected per-class metrics for 3 classes");
+
+  // A correctly computed report must have support summing to the test-set size.
+  const support = metrics.perClass.reduce((sum, c) => sum + c.support, 0);
+  assert.strictEqual(support, metrics.testSize, "per-class support must cover the test split");
+
+  // historical_fraud_count dominates in the notebook's model; it should lead here too.
+  const ranked = Object.entries(metrics.featureImportance).sort((a, b) => b[1] - a[1]);
+  assert.strictEqual(ranked[0][0], "historical_fraud_count", "expected the dominant feature first");
+
+  const history = await get("/api/v1/ml/history?limit=5");
+  assert.ok(history.length > 0, "expected the run to be recorded in the registry");
+});
+
+check("ML scores are written back onto the ATMs", async () => {
+  const atms = await get("/api/v1/atms?limit=500");
+  const scored = atms.filter((a) => ["LOW", "MEDIUM", "HIGH"].includes(a.risk_level));
+  assert.ok(scored.length === atms.length, "every ATM should carry a model risk level");
+
+  // Regression guard: the model's confidence must actually be a real probability.
+  // A misread predictProbability() shape silently wrote 0 for every ATM, which still
+  // produced a valid risk_level and so passed a naive check.
+  const zero = atms.filter((a) => !a.risk_score || a.risk_score === 0);
+  assert.strictEqual(zero.length, 0, `${zero.length} ATMs have risk_score 0 — scores were not computed`);
+
+  const scores = atms.map((a) => a.risk_score);
+  const max = Math.max(...scores);
+  assert.ok(max > 0, "the highest score must be positive");
+  assert.ok(max <= 100, `risk_score must be a percentage, got ${max}`);
+
+  // The distinct-value spread proves the scores vary rather than being one constant.
+  const distinct = new Set(scores);
+  assert.ok(distinct.size > 10, `expected varied scores, only ${distinct.size} distinct values`);
+});
+
+check("metrics survive a single-ATM prediction", async () => {
+  // Regression: loading a model from disk set cached.metrics to null, so any later
+  // metrics read answered with a bare `null` and any consumer of the endpoint broke.
+  const before = await get("/api/v1/ml/metrics");
+  assert.ok(before, "metrics must be available before a prediction");
+
+  const atms = await get("/api/v1/atms?limit=1");
+  const a = atms[0];
+  await post("/api/v1/ml/predict", {
+    highway_distance: a.highway_distance,
+    lighting_score: a.lighting_score,
+    cctv_coverage: a.cctv_coverage,
+    historical_fraud_count: a.historical_fraud_count,
+    withdrawal_limit: a.withdrawal_limit,
+  });
+
+  const after = await get("/api/v1/ml/metrics");
+  assert.ok(after, "metrics must still be available after a prediction");
+  assert.ok(after.accuracy > 0, "accuracy must be present after a prediction");
+  assert.ok(
+    Array.isArray(after.perClass) && after.perClass.length === 3,
+    "per-class metrics must survive a prediction",
+  );
+});
+
+check("single-ATM prediction survives a model reload from disk", async () => {
+  const atms = await get("/api/v1/atms?limit=1");
+  const a = atms[0];
+  const result = await post("/api/v1/ml/predict", {
+    highway_distance: a.highway_distance,
+    lighting_score: a.lighting_score,
+    cctv_coverage: a.cctv_coverage,
+    historical_fraud_count: a.historical_fraud_count,
+    withdrawal_limit: a.withdrawal_limit,
+  });
+  assert.ok(["LOW", "MEDIUM", "HIGH"].includes(result.riskLevel), `bad label ${result.riskLevel}`);
+  assert.ok(result.confidence > 0, "confidence must be positive");
+  assert.ok(result.confidence <= 100, `confidence must be a percentage, got ${result.confidence}`);
+});
+
+check("top-risk ATMs are ranked by score", async () => {
+  const top = await get("/api/v1/atms/top-risk?limit=8");
+  assert.strictEqual(top.length, 8);
+  for (let i = 1; i < top.length; i += 1) {
+    assert.ok(
+      top[i - 1].risk_score >= top[i].risk_score,
+      "top-risk list must be ordered by descending score",
+    );
+  }
+});
+
+check("demo login issues a JWT", async () => {
+  const result = await post("/api/v1/auth/login", {
+    email: "analyst@demo.gov",
+    password: "Demo@123",
+  });
+  assert.ok(result.token, "expected a token");
+  assert.strictEqual(result.user.role, "analyst");
+});
+
+check("login rejects a wrong password", async () => {
+  const res = await fetch(`${BASE}/api/v1/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "analyst@demo.gov", password: "wrong" }),
+  });
+  assert.strictEqual(res.status, 401, "a bad password must be rejected");
+});
+
+(async () => {
+  const lines = [];
+  let failed = 0;
+  for (const { name, fn } of checks) {
+    try {
+      await fn();
+      lines.push(`PASS  ${name}`);
+    } catch (error) {
+      failed += 1;
+      lines.push(`FAIL  ${name}`);
+      lines.push(`        ${error.message}`);
+    }
+  }
+  lines.push("");
+  lines.push(`${checks.length - failed}/${checks.length} pipeline checks passed.`);
+
+  // Written to a file as well as stdout: PowerShell redirection is unreliable for
+  // the async output of this script.
+  require("node:fs").writeFileSync(
+    require("node:path").join(__dirname, "pipeline.result.txt"),
+    lines.join("\n"),
+  );
+  console.log(lines.join("\n"));
+  process.exit(failed === 0 ? 0 : 1);
+})();
+

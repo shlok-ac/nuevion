@@ -43,15 +43,29 @@ function riskClass(level) {
   return String(level || '').toLowerCase().replace('critical', 'critical')
 }
 
-export default function CityHeatmap({ caseId: controlledCaseId = '', investigationCases = [], onNearbyAtmsChange, onAtmSelect }) {
+export default function CityHeatmap({
+  caseId: controlledCaseId = '',
+  investigationCases = [],
+  onNearbyAtmsChange,
+  onAtmSelect,
+  // City filter, lifted to the page so the region list and the map stay in step.
+  //
+  // This component renders no city dropdown of its own, so the value is fully
+  // controlled: the page's region selection is the only thing that changes it.
+  city = 'ALL',
+  // The city whose caller tower should be drawn, used to resolve a tower by name.
+  // Falling back to a positional lookup would be wrong: the investigation list holds
+  // hundreds of cases while the caller data has one row per city, so index N is not
+  // case N.
+  towerCity = '',
+}) {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
   const layersRef = useRef({ markers: [], heat: null, caller: null, buffer: null, tower: null, nearby: [] })
   const [rows, setRows] = useState([])
   const [towers, setTowers] = useState([])
   const [cases, setCases] = useState([])
-  const [city, setCity] = useState('ALL')
-  const [risk, setRisk] = useState('ALL')
+  const [risk] = useState('ALL')
   const [internalCaseId, setInternalCaseId] = useState('')
   const caseId = controlledCaseId || internalCaseId
   const [bufferKm, setBufferKm] = useState(3)
@@ -201,10 +215,19 @@ export default function CityHeatmap({ caseId: controlledCaseId = '', investigati
       layersRef.current.markers.push(marker)
     })
 
+    /*
+     * Resolve the caller record by the tower's city, not by the case's position.
+     *
+     * The positional fallback this replaces picked a different city for 503 of 505
+     * cases, because the caller data has one row per city while the investigation list
+     * has hundreds of cases. `towerCity` is supplied by the page from the same region
+     * that drives the ATM filter, so the tower and the markers always agree.
+     */
     const selectedInvestigationCase = investigationCases.find((c) => c.id === caseId)
-    const selectedCallerCase = cases.find((c) => c.case_id === caseId) || (selectedInvestigationCase
-      ? cases[investigationCases.findIndex((c) => c.id === selectedInvestigationCase.id)]
-      : null) || cases[0]
+    const selectedCallerCase =
+      (towerCity && cases.find((c) => c.city === towerCity))
+      || cases.find((c) => c.case_id === caseId)
+      || cases[0]
     const selectedCase = cases.find((c) => c.case_id === selectedCallerCase?.case_id) || selectedCallerCase
     const tower = selectedCase && towers.find((t) => t.tower_id === selectedCase.tower_id)
     if (tower) {
@@ -272,13 +295,23 @@ export default function CityHeatmap({ caseId: controlledCaseId = '', investigati
           layersRef.current.nearby.push(marker)
         })
 
-        map.fitBounds(layersRef.current.buffer.getBounds(), { maxZoom: 12, animate: false })
+        // The call circle belongs to the case's call city, which is not always the
+        // selected cash-out region, so it can sit far from that region's ATMs. Frame
+        // both when that happens; otherwise keep the tight 3 km buffer zoom.
+        const fit = layersRef.current.buffer.getBounds()
+        const strays = filtered.some(
+          (r) => !fit.contains(L.latLng(Number(r.latitude), Number(r.longitude))),
+        )
+        if (strays) {
+          fit.extend(L.latLngBounds(filtered.map((r) => [Number(r.latitude), Number(r.longitude)])))
+        }
+        map.fitBounds(fit.pad(0.1), { maxZoom: 12, animate: false })
       }
     } else if (filtered.length) {
       const bounds = L.latLngBounds(filtered.map((r) => [Number(r.latitude), Number(r.longitude)]))
       map.fitBounds(bounds.pad(0.1), { maxZoom: 6, animate: false })
     }
-  }, [rows, towers, cases, investigationCases, caseId, bufferKm, city, risk])
+  }, [rows, towers, cases, investigationCases, caseId, bufferKm, city, risk, towerCity])
 
   useEffect(() => {
     layersRef.current.nearby.forEach((marker) => {
@@ -294,9 +327,12 @@ export default function CityHeatmap({ caseId: controlledCaseId = '', investigati
   }, [selectedAtmId])
 
   const selectedInvestigationCase = investigationCases.find((c) => c.id === caseId)
-  const selectedCallerCase = cases.find((c) => c.case_id === caseId) || (selectedInvestigationCase
-    ? cases[investigationCases.findIndex((c) => c.id === selectedInvestigationCase.id)]
-    : null) || cases[0]
+  // Same city-first resolution as the map effect above, so the buffer drawn on the map
+  // and the "in caller zone" count reported to the page agree.
+  const selectedCallerCase =
+    (towerCity && cases.find((c) => c.city === towerCity))
+    || cases.find((c) => c.case_id === caseId)
+    || cases[0]
   const effectiveCallerCaseId = selectedCallerCase?.case_id || caseId
   const selectedCase = cases.find((c) => c.case_id === effectiveCallerCaseId) || selectedCallerCase
   const selectedTower = selectedCase && towers.find((t) => t.tower_id === selectedCase.tower_id)
