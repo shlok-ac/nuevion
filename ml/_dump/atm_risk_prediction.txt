@@ -1,0 +1,403 @@
+
+--- CELL 0 ---
+# Step 1: Install required tools and check GPU
+!apt-get update -qq && apt-get install -y ffmpeg -qq
+!pip install -q openai-whisper
+
+import torch
+print("------------------------------------------")
+print("PyTorch Version:", torch.__version__)
+print("GPU Available?:", torch.cuda.is_available())
+if torch.cuda.is_available():
+    print("GPU Device:", torch.cuda.get_device_name(0))
+else:
+    print("Running on CPU (Tip: Go to Runtime > Change runtime type > Select T4 GPU for 3x faster speed)")
+print("------------------------------------------")
+--- CELL 1 ---
+# Cell 1: Install Whisper and audio processor
+!pip install -q openai-whisper
+!apt-get install -y ffmpeg
+--- CELL 2 ---
+# Cell 2: Audio Processor & Entity Extractor (Complete & Fully Patched)
+import whisper
+import re
+import json
+import os
+from datetime import datetime
+
+print("Loading Whisper model...")
+whisper_model = whisper.load_model("small")
+print("Whisper model ready.")
+
+def parse_complaint_from_text(transcript: str) -> dict:
+    """Extracts cybercrime entities reliably from translated English text."""
+
+    # 1. Amount Extraction
+    stolen_amount = 0
+    lakh_match = re.search(r'(\d+)\s*(?:lakh|lac)', transcript, re.I)
+    thousand_match = re.search(r'(\d+)\s*(?:thousand|hazar)', transcript, re.I)
+    direct_num = re.search(r'(?:rs\.?|inr|rupees|\$)\s*(\d+[\d,]*)|(\d+[\d,]*)\s*(?:rs\.?|inr|rupees)', transcript, re.I)
+
+    if lakh_match:
+        stolen_amount += int(lakh_match.group(1)) * 100000
+    if thousand_match:
+        stolen_amount += int(thousand_match.group(1)) * 1000
+    if stolen_amount == 0 and direct_num:
+        raw_val = direct_num.group(1) or direct_num.group(2)
+        stolen_amount = int(raw_val.replace(',', ''))
+    if stolen_amount == 0:
+        num_fallback = re.search(r'\b\d{3,7}\b', transcript.replace(',', ''))
+        stolen_amount = int(num_fallback.group(0)) if num_fallback else 0
+
+    # 2. Transfer Mode Detection
+    transfer_mode = "UPI"
+    t_mode_check = transcript.lower()
+    if "credit card" in t_mode_check or "debit card" in t_mode_check or " card" in t_mode_check:
+        transfer_mode = "CARD_PAYMENT"
+    elif "net banking" in t_mode_check or "internet banking" in t_mode_check or "bank transfer" in t_mode_check:
+        transfer_mode = "NET_BANKING"
+    else:
+        for mode in ["NEFT", "IMPS", "RTGS", "UPI"]:
+            if re.search(r'\b' + mode + r'\b', transcript, re.I):
+                transfer_mode = mode
+                break
+
+    # 3. Mule Account Extractor
+    mule_acc = None
+    stop_words = {"in", "to", "is", "at", "the", "a", "an", "on", "into", "for", "of", "rs"}
+
+    direct_mule = re.search(
+        r'\bmule\b(?:\s+(?:account|acc|no|number|id|is|in|to|at|into|on))*\s*[:\-#]?\s*([0-9a-zA-Z]+)',
+        transcript,
+        re.I
+    )
+
+    split_mule = re.search(
+        r'\bmule\b.*?(?:to|in|at|number|no|#|account)?\s*([0-9]{4,18})\b',
+        transcript,
+        re.I
+    )
+
+    vpa_match = re.search(r'[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+', transcript)
+    vpa_spoken = re.search(r'([a-zA-Z0-9._-]+)\s+at\s+([a-zA-Z]{3,})', transcript, re.I)
+    acc_num_match = re.search(r'(?:account|acc|a/c|number)\s*[:\-#]?\s*([0-9]{4,18})', transcript, re.I)
+
+    if direct_mule and direct_mule.group(1).lower() not in stop_words and not direct_mule.group(1).isalpha():
+        mule_acc = f"ACC_MULE_{direct_mule.group(1).upper()}"
+    elif split_mule:
+        extracted_candidate = split_mule.group(1)
+        if stolen_amount and int(extracted_candidate) == stolen_amount:
+            subsequent_num = re.search(rf'{extracted_candidate}.*?\b([0-9]{{4,18}})\b', transcript)
+            mule_acc = f"ACC_MULE_{subsequent_num.group(1)}" if subsequent_num else "ACC_MULE_UNKNOWN"
+        else:
+            mule_acc = f"ACC_MULE_{extracted_candidate}"
+    elif vpa_match:
+        mule_acc = vpa_match.group(0)
+    elif vpa_spoken:
+        mule_acc = f"{vpa_spoken.group(1)}@{vpa_spoken.group(2)}"
+    elif acc_num_match:
+        mule_acc = f"ACC_{acc_num_match.group(1)}"
+    else:
+        mule_acc = "ACC_MULE_UNKNOWN"
+
+    # 4. Scam Category Classification
+    t_lower = transcript.lower()
+    scam_rules = [
+        ("CREDIT_CARD_FRAUD", ["credit card", "debit card", "card block", "cvv", "otp card", "card limit"]),
+        ("DIGITAL_ARREST", ["digital arrest", "cbi", "police", "customs", "narcotics", "arrest warrant", "ed officer", "skype call"]),
+        ("UTILITY_BILL_FRAUD", ["electricity", "power bill", "bill update", "bijli", "water bill", "challan"]),
+        ("TASK_JOB_FRAUD", ["task", "part time", "job", "telegram", "youtube like", "hotel review", "work from home"]),
+        ("INVESTMENT_TRADING_FRAUD", ["trading", "crypto", "bitcoin", "stocks", "ipo allotment", "share market", "forex"]),
+        ("LOAN_APP_EXTORTION", ["loan app", "instant loan", "blackmail", "morph", "contacts hacked", "recovery agent"]),
+        ("COURIER_CUSTOMS_FRAUD", ["fedex", "dhl", "parcel", "drugs in parcel", "customs clearance"]),
+        ("KYC_SIM_EXPIRY_FRAUD", ["kyc update", "sim block", "pan card link", "verification"]),
+        ("LOTTERY_REWARD_FRAUD", ["lottery", "lucky draw", "scratch card", "reward points", "cashback offer"]),
+        ("REMOTE_ACCESS_MALWARE", ["anydesk", "teamviewer", "rustdesk", "quicksupport", "screen share"])
+    ]
+
+    scam_category = "FINANCIAL_FRAUD"
+    for category, keywords in scam_rules:
+        if any(keyword in t_lower for keyword in keywords):
+            scam_category = category
+            break
+
+    # 5. Extract Location if spoken (Default to New Delhi)
+    victim_lat, victim_lon = 28.6139, 77.2090
+    if "pune" in t_lower:
+        victim_lat, victim_lon = 18.5204, 73.8567
+    elif "mumbai" in t_lower:
+        victim_lat, victim_lon = 19.0760, 72.8777
+    elif "connaught place" in t_lower or "delhi" in t_lower:
+        victim_lat, victim_lon = 28.6315, 77.2167
+
+    return {
+        "complaint_id": f"1930_2026_{datetime.now().strftime('%M%S')}",
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "english_transcript": transcript,
+        "stolen_amount_inr": stolen_amount,
+        "transfer_mode": transfer_mode,
+        "initial_mule_account": mule_acc,
+        "victim_lat": round(victim_lat, 6),
+        "victim_lon": round(victim_lon, 6),
+        "scam_category": scam_category
+    }
+
+def process_call_audio(audio_path: str) -> dict:
+    """Translates audio to English, extracts entities, and purges audio."""
+    print(f"\n[1/3] Processing audio & converting to English...")
+
+    cyber_context = "Cybercrime 1930 helpline complaint reporting financial fraud, unauthorized transfer, mule account number, credit card scam, electricity bill fraud, UPI transaction."
+
+    result = whisper_model.transcribe(
+        audio_path,
+        task="translate",
+        initial_prompt=cyber_context,
+        fp16=False
+    )
+    english_text = result["text"].strip()
+
+    print("\n--- Spoken Audio Content (English Translation) ---")
+    print(f'"{english_text}"')
+
+    print("\n[2/3] Extracting complaint details...")
+    extracted_data = parse_complaint_from_text(english_text)
+
+    print("\n[3/3] Enforcing data privacy: purging local call audio...")
+    try:
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+            print(f"Raw audio '{audio_path}' securely purged from disk.")
+    except Exception as err:
+        print(f"File cleanup notice: {err}")
+
+    print("\n--- Extracted Complaint Record ---")
+    print(json.dumps(extracted_data, indent=2))
+
+    return extracted_data
+--- CELL 3 ---
+from google.colab import files
+
+print("Select your call recording (.mp3, .wav, .m4a):")
+uploaded = files.upload()
+
+for filename in uploaded.keys():
+    print(f"\n{'='*50}")
+    print(f"Analyzing Call: {filename}")
+    print(f"{'='*50}")
+
+    # Runs the extractor and stores into memory
+    extracted_record = process_call_audio(filename)
+--- CELL 4 ---
+# Cell 4: Mule Hop Graph Engine (NetworkX)
+import networkx as nx
+
+def trace_mule_hops(extracted_record: dict):
+    root_mule = extracted_record.get("initial_mule_account", "ACC_UNKNOWN")
+    total_amount = extracted_record.get("stolen_amount_inr", 10000)
+
+    print("--- MULE GRAPH TRACER INITIALIZED ---")
+    print(f"Tracking Source Mule: {root_mule}")
+    print(f"Total Stolen Sum: Rs. {total_amount:,}")
+
+    # 1. Build Directed Graph
+    G = nx.DiGraph()
+    G.add_edge("VICTIM", root_mule, amount=total_amount)
+
+    # 2. Fraud Split Layer (large sums split into chunks to bypass bank velocity alerts)
+    split_count = 3 if total_amount >= 30000 else 2
+    chunk_amount = total_amount // split_count
+
+    terminal_accounts = []
+    for i in range(1, split_count + 1):
+        l2_mule = f"{root_mule}_L2_{i}"
+        G.add_edge(root_mule, l2_mule, amount=chunk_amount)
+
+        # Cash runner terminal point
+        cash_node = f"{l2_mule}_CASH_RUNNER"
+        G.add_edge(l2_mule, cash_node, amount=chunk_amount)
+
+        terminal_accounts.append({
+            "account_id": cash_node,
+            "allocated_amount": chunk_amount,
+            "hop_depth": 3,
+            "status": "IMMINENT_WITHDRAWAL"
+        })
+
+    print(f"Network Nodes: {G.number_of_nodes()} | Edges: {G.number_of_edges()}")
+    print(f"Detected {len(terminal_accounts)} terminal cash-out endpoints.")
+
+    # Pass along coordinates
+    lat = extracted_record.get("victim_lat", 28.6139)
+    lon = extracted_record.get("victim_lon", 77.2090)
+
+    return {
+        "complaint_id": extracted_record.get("complaint_id"),
+        "root_mule": root_mule,
+        "total_amount": total_amount,
+        "center_coords": (lat, lon),
+        "terminal_targets": terminal_accounts
+    }
+
+# Execute using your complaint record variable
+# (If your variable name in Cell 3 was different, update it here)
+graph_payload = trace_mule_hops(extracted_record)
+print("\nPayload ready for Geospatial Engine:")
+import pprint
+pprint.pprint(graph_payload)
+--- CELL 5 ---
+# Cell 5: Real CSV-Driven Interdiction Map (Watermark-Free Fix)
+!pip install -q folium geopy
+
+import folium
+import pandas as pd
+from geopy.distance import geodesic
+
+ATM_PRED_FILE = "atm_predictions .csv"
+MAPPING_FILE = "atm_cashout_mapping.csv"
+
+def get_target_atms_for_complaint(complaint_no: str, radius_km: float = 10.0):
+    df_map = pd.read_csv(MAPPING_FILE)
+    df_pred = pd.read_csv(ATM_PRED_FILE)
+
+    matched = df_map[df_map['complaint_number'] == complaint_no]
+
+    if matched.empty:
+        target_atm_id = df_map.iloc[0]['atm_id']
+        incident_lat = float(df_map.iloc[0]['latitude'])
+        incident_lon = float(df_map.iloc[0]['longitude'])
+    else:
+        target_atm_id = matched.iloc[0]['atm_id']
+        incident_lat = float(matched.iloc[0]['latitude'])
+        incident_lon = float(matched.iloc[0]['longitude'])
+
+    df_pred['dist_km'] = df_pred.apply(
+        lambda r: round(geodesic((incident_lat, incident_lon), (r['latitude'], r['longitude'])).km, 2),
+        axis=1
+    )
+
+    primary_target = df_pred[df_pred['atm_id'] == target_atm_id]
+    nearby_risky = df_pred[df_pred['dist_km'] <= radius_km].sort_values(by='risk_score', ascending=False).head(4)
+
+    combined = pd.concat([primary_target, nearby_risky]).drop_duplicates(subset=['atm_id'])
+    return incident_lat, incident_lon, target_atm_id, combined
+
+# Extract complaint identifier from NLP or fallback to active case
+active_complaint = extracted_record.get("complaint_id", "CMP100001")
+inc_lat, inc_lon, target_id, atms_df = get_target_atms_for_complaint(active_complaint)
+
+# RENDER MAP: High-resolution, zero-key, watermark-free street tiles
+fmap = folium.Map(
+    location=[inc_lat, inc_lon],
+    zoom_start=13,
+    tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    attr="Tiles &copy; Esri &mdash; Street Map Contributors"
+)
+
+# Incident Locus Pin (Blue)
+folium.Marker(
+    location=[inc_lat, inc_lon],
+    popup=f"<b>Incident Locus</b><br>ID: {active_complaint}",
+    icon=folium.Icon(color="blue", icon="info-sign")
+).add_to(fmap)
+
+# 45-Min Interdiction Zone (Red Circle)
+folium.Circle(
+    location=[inc_lat, inc_lon],
+    radius=3000,
+    color="#e74c3c",
+    fill=True,
+    fill_color="#e74c3c",
+    fill_opacity=0.15,
+    tooltip="Interdiction Zone"
+).add_to(fmap)
+
+# Plot ATM markers
+for _, row in atms_df.iterrows():
+    is_primary = (row['atm_id'] == target_id)
+    color = "red" if is_primary else "orange" if row['risk_level'] == "HIGH" else "darkgray"
+    icon = "exclamation-sign" if is_primary else "ok-sign"
+
+    folium.Marker(
+        location=[row['latitude'], row['longitude']],
+        popup=(
+            f"<b>{'[PRIMARY TARGET] ' if is_primary else ''}{row['atm_id']}</b><br>"
+            f"Bank: {row['bank_name']}<br>"
+            f"Risk Score: {row['risk_score']} ({row['risk_level']})<br>"
+            f"Confidence: {row['prediction_confidence']}%<br>"
+            f"Distance: {row['dist_km']} km"
+        ),
+        icon=folium.Icon(color=color, icon=icon)
+    ).add_to(fmap)
+
+print(f"Map rendered successfully for {active_complaint}. Target: {target_id}")
+display(fmap)
+--- CELL 6 ---
+# Cell 6: Law Enforcement Interdiction Advisory & Dispatch Generator
+import pandas as pd
+from datetime import datetime, timedelta
+
+def generate_police_dispatch_advisory(complaint_no, target_atm_id, atms_df, window_minutes=45):
+    """
+    Constructs an operational interdiction docket for PCR patrol units and bank nodal officers.
+    """
+    primary_atm = atms_df[atms_df['atm_id'] == target_atm_id].iloc[0]
+    eta_expiry = datetime.now() + timedelta(minutes=window_minutes)
+
+    print("=" * 70)
+    print("🚨 [CRITICAL ALERT] NIRIKSHAN AI / SENTINCASH INTERDICTION ADVISORY 🚨")
+    print("=" * 70)
+    print(f" incident id        : {complaint_no}")
+    print(f" alert timestamp    : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f" cash-out window    : {window_minutes} MINUTES (EXPIRING AT: {eta_expiry.strftime('%H:%M:%S')})")
+    print(f" urgency level      : IMMEDIATE INTERCEPTION REQUIRED (CODE RED)")
+    print("-" * 70)
+    print("📍 PRIMARY TARGET FOR PHYSICAL INTERCEPTION:")
+    print(f" • ATM ID           : {primary_atm['atm_id']}")
+    print(f" • Bank Name        : {primary_atm['bank_name']}")
+    print(f" • GPS Coordinates  : ({primary_atm['latitude']:.6f}, {primary_atm['longitude']:.6f})")
+    print(f" • Highway Proximity: {primary_atm.get('highway_distance', 'N/A')} km from escape corridor")
+    print(f" • Risk Rating (AVI): {primary_atm['risk_score']} / 100 ({primary_atm['risk_level']})")
+    print(f" • Model Confidence : {primary_atm['prediction_confidence']}%")
+    print("-" * 70)
+    print("🛡️ DIRECTIVES FOR FIELD UNITS & PATROL VANS:")
+    print(" 1. Dispatch nearest Beat Patrol vehicle to secure ATM perimeter.")
+    print(" 2. Request CCTV feed verification from Bank Security Operations Center (SOC).")
+    print(" 3. Trigger digital cash-dispense velocity throttle on ATM terminal.")
+    print("=" * 70)
+
+# Execute automated dispatch advisory for the current incident
+generate_police_dispatch_advisory(active_complaint, target_id, atms_df)
+--- CELL 7 ---
+# Cell 7: Export Interdiction & Statutory Data Payload for Web Portal
+import json
+from datetime import datetime
+
+def export_dossier_payload(complaint_no, target_atm_id, atms_df, extracted_data):
+    primary_atm = atms_df[atms_df['atm_id'] == target_atm_id].iloc[0]
+
+    payload = {
+        "complaint_id": complaint_no,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S IST"),
+        "target_atm": {
+            "atm_id": str(primary_atm['atm_id']),
+            "bank_name": str(primary_atm['bank_name']),
+            "latitude": float(primary_atm['latitude']),
+            "longitude": float(primary_atm['longitude']),
+            "risk_score": float(primary_atm['risk_score']),
+            "risk_level": str(primary_atm['risk_level']),
+            "confidence": float(primary_atm['prediction_confidence'])
+        },
+        "investigation": {
+            "fraud_amount": extracted_data.get("fraud_amount", 50000),
+            "terminal_account": extracted_data.get("terminal_account", "ACC0001M3"),
+            "statutory_act": "Section 106 BNSS, 2023"
+        }
+    }
+
+    output_filename = "notice_data.json"
+    with open(output_filename, "w") as f:
+        json.dump(payload, f, indent=4)
+
+    print(f"✅ Prediction payload successfully exported to '{output_filename}'. Ready for consumption by frontend portal.")
+
+export_dossier_payload(active_complaint, target_id, atms_df, extracted_record)

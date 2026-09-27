@@ -1,0 +1,458 @@
+
+--- CELL 0 ---
+import pandas as pd
+
+# Load existing ATM dataset
+df = pd.read_csv("atms.csv")
+
+# Display first 5 records
+print("First 5 ATM records:")
+print(df.head())
+
+# Display dataset size
+print("\nDataset shape:")
+print(df.shape)
+
+# Display column names
+print("\nATM columns:")
+print(df.columns.tolist())
+--- CELL 1 ---
+print(df.columns.tolist())
+--- CELL 2 ---
+# --------------------------------
+# STEP 2: Check ATM Data
+# --------------------------------
+
+# Check missing values
+print("\nMissing values:")
+print(df.isnull().sum())
+
+
+# Check duplicate rows
+print("\nDuplicate rows:")
+print(df.duplicated().sum())
+
+
+# Check data types
+print("\nData types:")
+print(df.dtypes)
+
+
+# Check unique risk levels
+print("\nRisk levels:")
+print(df["risk_level"].value_counts())
+
+
+# Basic statistics
+print("\nBasic statistics:")
+print(df.describe())
+--- CELL 3 ---
+features = [
+    "highway_distance",
+    "lighting_score",
+    "cctv_coverage",
+    "historical_fraud_count",
+    "withdrawal_limit"
+]
+--- CELL 4 ---
+target = "risk_level"
+--- CELL 5 ---
+# --------------------------------
+# STEP 3: Select ML Features
+# --------------------------------
+
+features = [
+    "highway_distance",
+    "lighting_score",
+    "cctv_coverage",
+    "historical_fraud_count",
+    "withdrawal_limit"
+]
+
+target = "risk_level"
+
+
+# Input data
+X = df[features]
+
+# Target/output
+y = df[target]
+
+
+print("\nSelected features:")
+print(features)
+
+print("\nTarget:")
+print(target)
+
+print("\nX shape:")
+print(X.shape)
+
+print("\ny shape:")
+print(y.shape)
+--- CELL 6 ---
+# --------------------------------
+# STEP 4: Encode Target
+# --------------------------------
+
+from sklearn.preprocessing import LabelEncoder
+
+encoder = LabelEncoder()
+
+y_encoded = encoder.fit_transform(y)
+
+
+print("\nOriginal risk levels:")
+print(y.unique())
+
+print("\nEncoded risk levels:")
+print(y_encoded[:10])
+
+print("\nClass mapping:")
+for number, label in enumerate(encoder.classes_):
+    print(number, "=", label)
+--- CELL 7 ---
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y_encoded,
+    test_size=0.2,
+    random_state=42,
+    stratify=y_encoded
+)
+
+print("Training data:", X_train.shape)
+print("Testing data:", X_test.shape)
+
+print("Training target:", y_train.shape)
+print("Testing target:", y_test.shape)
+--- CELL 8 ---
+from sklearn.ensemble import RandomForestClassifier
+
+# Create Random Forest model
+model = RandomForestClassifier(
+    n_estimators=100,
+    random_state=42
+)
+
+# Train the model
+model.fit(X_train, y_train)
+
+print("Random Forest model trained successfully!")
+--- CELL 9 ---
+from sklearn.metrics import accuracy_score, classification_report
+
+# Make predictions on test data
+y_pred = model.predict(X_test)
+
+# Calculate accuracy
+accuracy = accuracy_score(y_test, y_pred)
+
+print("Model Accuracy:", accuracy)
+
+# Detailed classification report
+print("\nClassification Report:")
+print(classification_report(
+    y_test,
+    y_pred,
+    target_names=encoder.classes_
+))
+--- CELL 10 ---
+# Get feature importance
+importance = model.feature_importances_
+
+# Display feature importance
+print("Feature Importance:")
+
+for feature, value in zip(features, importance):
+    print(feature, ":", round(value, 4))
+--- CELL 11 ---
+# Predict risk level for all ATMs
+all_predictions = model.predict(X)
+
+# Convert numeric predictions back to risk labels
+predicted_risk_level = encoder.inverse_transform(all_predictions)
+
+# Add predictions to a copy of the ATM dataset
+atm_predictions = df.copy()
+
+atm_predictions["predicted_risk_level"] = predicted_risk_level
+
+# Display first 10 predictions
+print(atm_predictions[
+    ["atm_id", "risk_level", "predicted_risk_level"]
+].head(10))
+--- CELL 12 ---
+# Get prediction probabilities
+probabilities = model.predict_proba(X)
+
+# Get highest probability for each ATM
+prediction_confidence = probabilities.max(axis=1)
+
+# Convert confidence to percentage
+prediction_confidence = prediction_confidence * 100
+
+# Add confidence to predictions
+atm_predictions["prediction_confidence"] = prediction_confidence.round(2)
+
+# Display results
+print(atm_predictions[
+    ["atm_id", "risk_level", "predicted_risk_level", "prediction_confidence"]
+].head(10))
+--- CELL 13 ---
+# Load existing complaints dataset
+complaints = pd.read_csv("complaints.csv")
+
+# Show columns
+print("Complaint columns:")
+print(complaints.columns.tolist())
+
+# Show first 5 records
+print("\nFirst 5 complaint records:")
+print(complaints.head())
+--- CELL 14 ---
+# Convert complaint date and time
+complaints["fraud_date"] = pd.to_datetime(complaints["fraud_date"])
+
+complaints["fraud_time"] = pd.to_datetime(
+    complaints["fraud_time"],
+    format="%H:%M:%S"
+).dt.time
+
+# Add date
+atm_predictions["date"] = complaints["fraud_date"].dt.strftime("%Y-%m-%d")
+
+# Add time
+atm_predictions["time"] = complaints["fraud_time"].astype(str)
+
+# Create time of day
+def get_time_of_day(time):
+    hour = time.hour
+
+    if 5 <= hour < 12:
+        return "Morning"
+    elif 12 <= hour < 17:
+        return "Afternoon"
+    elif 17 <= hour < 21:
+        return "Evening"
+    else:
+        return "Night"
+
+atm_predictions["time_of_day"] = complaints["fraud_time"].apply(
+    get_time_of_day
+)
+
+# Check the result
+print(
+    atm_predictions[
+        ["atm_id", "date", "time", "time_of_day"]
+    ].head(10)
+)
+--- CELL 15 ---
+cases = pd.read_csv("cases.csv")
+
+print("Cases columns:")
+print(cases.columns.tolist())
+--- CELL 16 ---
+atm_predictions["crime_type"] = complaints["description"]
+
+print(
+    atm_predictions[
+        ["atm_id", "date", "time", "time_of_day", "crime_type"]
+    ].head(10)
+)
+--- CELL 17 ---
+print("Final dataset shape:")
+print(atm_predictions.shape)
+
+print("\nMissing values:")
+print(atm_predictions.isnull().sum())
+
+print("\nFinal columns:")
+print(atm_predictions.columns.tolist())
+--- CELL 18 ---
+atm_predictions.to_csv("atm_predictions.csv", index=False)
+
+print("atm_predictions.csv created successfully!")
+--- CELL 19 ---
+import pandas as pd
+
+# Load existing complaints
+complaints = pd.read_csv("complaints.csv")
+
+mule_hops = []
+
+for idx, complaint in complaints.reset_index(drop=True).iterrows():
+
+    complaint_id = complaint["complaint_number"]
+    original_amount = complaint["fraud_amount"]
+    fraud_timestamp = pd.to_datetime(complaint["created_at"])
+
+    # Create accounts
+    victim_account = f"ACC{idx+1:04d}V"
+    mule_account_1 = f"ACC{idx+1:04d}M1"
+    mule_account_2 = f"ACC{idx+1:04d}M2"
+    cashout_account = f"ACC{idx+1:04d}M3"
+
+    # Hop 1
+    mule_hops.append({
+        "hop_id": f"HOP{idx*3+1:04d}",
+        "complaint_id": complaint_id,
+        "hop_level": 1,
+        "from_account": victim_account,
+        "to_account": mule_account_1,
+        "amount_transferred_inr": round(original_amount * 0.95, 2),
+        "time_delay_minutes": 5,
+        "timestamp": fraud_timestamp
+    })
+
+    # Hop 2
+    mule_hops.append({
+        "hop_id": f"HOP{idx*3+2:04d}",
+        "complaint_id": complaint_id,
+        "hop_level": 2,
+        "from_account": mule_account_1,
+        "to_account": mule_account_2,
+        "amount_transferred_inr": round(original_amount * 0.90, 2),
+        "time_delay_minutes": 12,
+        "timestamp": fraud_timestamp + pd.Timedelta(minutes=17)
+    })
+
+    # Hop 3
+    mule_hops.append({
+        "hop_id": f"HOP{idx*3+3:04d}",
+        "complaint_id": complaint_id,
+        "hop_level": 3,
+        "from_account": mule_account_2,
+        "to_account": cashout_account,
+        "amount_transferred_inr": round(original_amount * 0.85, 2),
+        "time_delay_minutes": 8,
+        "timestamp": fraud_timestamp + pd.Timedelta(minutes=25)
+    })
+
+# Create DataFrame
+mule_hops = pd.DataFrame(mule_hops)
+
+# Save
+mule_hops.to_csv("mule_hops.csv", index=False)
+
+print("mule_hops.csv created successfully!")
+
+print("\nShape:")
+print(mule_hops.shape)
+
+print("\nColumns:")
+print(mule_hops.columns.tolist())
+
+print("\nFirst 10 records:")
+print(mule_hops.head(10))
+--- CELL 20 ---
+print(
+    mule_hops[
+        mule_hops["complaint_id"] == "CMP100001"
+    ]
+)
+--- CELL 21 ---
+atm_predictions.columns.tolist()
+--- CELL 22 ---
+import pandas as pd
+
+mule_hops = pd.read_csv("mule_hops.csv")
+atm_predictions = pd.read_csv("atm_predictions.csv")
+
+print("mule_hops:", mule_hops.shape)
+print("atm_predictions:", atm_predictions.shape)
+--- CELL 23 ---
+complaints = pd.read_csv("complaints.csv")
+
+print(complaints["location"].head(10).tolist())
+--- CELL 24 ---
+import pandas as pd
+
+# Select the highest-risk predicted ATM in each city
+city_atm = (
+    atm_predictions
+    .sort_values(
+        ["city", "predicted_risk_level", "prediction_confidence"],
+        ascending=[True, True, False]
+    )
+    .groupby("city")
+    .first()
+    .reset_index()
+)
+
+# Create complaint → likely ATM mapping
+likely_atm = complaints.merge(
+    city_atm[
+        [
+            "city",
+            "atm_id",
+            "bank_name",
+            "latitude",
+            "longitude",
+            "predicted_risk_level",
+            "prediction_confidence"
+        ]
+    ],
+    left_on="location",
+    right_on="city",
+    how="left"
+)
+
+# Keep only the required output columns
+likely_atm = likely_atm[
+    [
+        "complaint_number",
+        "location",
+        "atm_id",
+        "bank_name_y", # Changed from "bank_name" to "bank_name_y"
+        "latitude",
+        "longitude",
+        "predicted_risk_level",
+        "prediction_confidence"
+    ]
+]
+
+print(likely_atm.shape)
+print(likely_atm.head())
+--- CELL 25 ---
+# Get the final cash-out account for each complaint
+cashout_accounts = (
+    mule_hops[mule_hops["hop_level"] == 3]
+    [["complaint_id", "to_account"]]
+    .rename(columns={
+        "complaint_id": "complaint_number",
+        "to_account": "cashout_account"
+    })
+)
+
+# Connect cash-out account with the likely ATM
+atm_cashout_mapping = likely_atm.merge(
+    cashout_accounts,
+    on="complaint_number",
+    how="left"
+)
+
+# Reorder columns
+atm_cashout_mapping = atm_cashout_mapping[
+    [
+        "complaint_number",
+        "location",
+        "cashout_account",
+        "atm_id",
+        "bank_name_y",
+        "latitude",
+        "longitude",
+        "predicted_risk_level",
+        "prediction_confidence"
+    ]
+]
+
+print(atm_cashout_mapping.shape)
+print(atm_cashout_mapping.head())
+--- CELL 26 ---
+atm_cashout_mapping.to_csv("atm_cashout_mapping.csv", index=False)
+
+print("atm_cashout_mapping.csv created successfully!")
+print("Shape:", atm_cashout_mapping.shape)
