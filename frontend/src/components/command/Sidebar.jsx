@@ -16,7 +16,7 @@ import {
 import { Image } from "@/components/ui/image";
 import { cn } from "@/lib/utils";
 
-const EMBLEM_URL = "/emblem.png";
+const LOGO_URL = "/logo.png";
 
 const nav = [
   { to: "/", label: "Command Dashboard", icon: LayoutDashboard, end: true },
@@ -46,7 +46,7 @@ export default function Sidebar() {
           isCollapsed ? "justify-center px-2" : "gap-2 px-4"
         )}
       >
-        <Image src={EMBLEM_URL} fittingType="fit" className="h-11 w-11 shrink-0" />
+        <Image src={LOGO_URL} fittingType="fit" className="h-11 w-11 shrink-0" />
         {!isCollapsed && (
           <div className="leading-tight">
             <p className="text-[13px] font-semibold">National Cyber Fraud</p>
