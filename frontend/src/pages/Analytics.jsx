@@ -36,7 +36,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import PageHeader from "@/components/command/PageHeader";
 import { cn } from "@/lib/utils";
 
 const chartColors = {
@@ -138,66 +137,21 @@ function ChartCard({ title, description, action, children, className }) {
 
 function KpiCard({ label, value, detail, icon: Icon, tone = "blue" }) {
   const tones = {
-    blue: {
-      chip: "bg-blue-50 text-blue-600",
-      chipHover: "group-hover:bg-blue-100 group-hover:text-blue-700",
-      border: "hover:border-blue-500/40",
-      shadow: "hover:shadow-[0_16px_32px_-16px_rgb(59_130_246/0.35)]",
-      glow: "bg-blue-500/20",
-    },
-    red: {
-      chip: "bg-red-50 text-red-600",
-      chipHover: "group-hover:bg-red-100 group-hover:text-red-700",
-      border: "hover:border-red-500/40",
-      shadow: "hover:shadow-[0_16px_32px_-16px_rgb(239_68_68/0.35)]",
-      glow: "bg-red-500/20",
-    },
-    amber: {
-      chip: "bg-amber-50 text-amber-600",
-      chipHover: "group-hover:bg-amber-100 group-hover:text-amber-700",
-      border: "hover:border-amber-500/40",
-      shadow: "hover:shadow-[0_16px_32px_-16px_rgb(245_158_11/0.35)]",
-      glow: "bg-amber-500/20",
-    },
-    teal: {
-      chip: "bg-teal-50 text-teal-600",
-      chipHover: "group-hover:bg-teal-100 group-hover:text-teal-700",
-      border: "hover:border-teal-500/40",
-      shadow: "hover:shadow-[0_16px_32px_-16px_rgb(20_184_166/0.35)]",
-      glow: "bg-teal-500/20",
-    },
+    blue: "bg-blue-50 text-blue-600",
+    red: "bg-red-50 text-red-600",
+    amber: "bg-amber-50 text-amber-600",
+    teal: "bg-teal-50 text-teal-600",
   };
 
-  const t = tones[tone] ?? tones.blue;
-
   return (
-    <Card
-      className={cn(
-        "group relative overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1",
-        t.border,
-        t.shadow
-      )}
-    >
-      <div
-        aria-hidden="true"
-        className={cn(
-          "pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full opacity-0 blur-2xl transition-all duration-500 group-hover:scale-150 group-hover:opacity-100",
-          t.glow
-        )}
-      />
-      <CardContent className="relative flex items-start justify-between p-4">
+    <Card>
+      <CardContent className="flex items-start justify-between p-4">
         <div>
           <p className="text-xs font-medium text-muted-foreground">{label}</p>
           <p className="mt-2 text-xl font-semibold tracking-tight">{value}</p>
           <p className="mt-1 text-[11px] text-muted-foreground">{detail}</p>
         </div>
-        <div
-          className={cn(
-            "rounded-lg p-2 transition-all duration-300 group-hover:scale-105",
-            t.chip,
-            t.chipHover
-          )}
-        >
+        <div className={cn("rounded-lg p-2", tones[tone])}>
           <Icon className="h-4 w-4" />
         </div>
       </CardContent>
@@ -312,14 +266,14 @@ function CaseAnalytics() {
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-        <Card className="bg-emerald-50/40">
+        <Card className="bg-primary text-primary-foreground">
           <CardHeader className="px-5 py-4">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-emerald-950"><TrendingUp className="h-4 w-4" /> Key Insights</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium"><TrendingUp className="h-4 w-4" /> Key Insights</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 px-5 pb-5">
             {insights.map((insight, index) => (
-              <div key={insight} className="flex gap-3 text-xs leading-relaxed text-emerald-950/85">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600/15 text-[10px] font-medium text-emerald-950">{index + 1}</span>
+              <div key={insight} className="flex gap-3 text-xs leading-relaxed text-primary-foreground/80">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-foreground/15 text-[10px] text-primary-foreground">{index + 1}</span>
                 <span>{insight}</span>
               </div>
             ))}
@@ -472,23 +426,23 @@ export default function Analytics() {
   const [section, setSection] = useState("case");
 
   return (
-    <div className="space-y-6 p-6">
-      <PageHeader
-        title="Analytics"
-        description="Monitor case activity and model performance."
-        actions={
-          <Tabs value={section} onValueChange={setSection}>
-            <TabsList className="h-10 rounded-lg border bg-muted/80 p-1 shadow-sm">
-              <TabsTrigger value="case" className="gap-2 px-3 text-xs">
-                <FileSearch className="h-3.5 w-3.5" /> Case Analytics
-              </TabsTrigger>
-              <TabsTrigger value="model" className="gap-2 px-3 text-xs">
-                <BrainCircuit className="h-3.5 w-3.5" /> ML Model Analytics
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        }
-      />
+    <div className="space-y-5 p-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold">Analytics</h2>
+          <p className="text-sm text-muted-foreground">Monitor case activity and model performance.</p>
+        </div>
+        <Tabs value={section} onValueChange={setSection}>
+          <TabsList className="h-10 rounded-lg border bg-muted/80 p-1 shadow-sm">
+            <TabsTrigger value="case" className="gap-2 px-3 text-xs">
+              <FileSearch className="h-3.5 w-3.5" /> Case Analytics
+            </TabsTrigger>
+            <TabsTrigger value="model" className="gap-2 px-3 text-xs">
+              <BrainCircuit className="h-3.5 w-3.5" /> ML Model Analytics
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
       <div key={section} className="animate-in fade-in-0 duration-300">
         {section === "case" ? <CaseAnalytics /> : <ModelAnalytics />}
       </div>
