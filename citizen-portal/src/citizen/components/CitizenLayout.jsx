@@ -85,7 +85,7 @@ export default function CitizenLayout() {
             Help & FAQ
           </NavLink>
 
-          <NavLink to="/login">
+          <NavLink to="/complaints">
             My Complaints
           </NavLink>
         </div>
@@ -111,7 +111,7 @@ export default function CitizenLayout() {
             <h4>Citizen Services</h4>
             <Link to="/report">Report Fraud</Link>
             <Link to="/track">Track Complaint</Link>
-            <Link to="/login">My Complaints</Link>
+            <Link to="/complaints">My Complaints</Link>
           </div>
 
           <div>

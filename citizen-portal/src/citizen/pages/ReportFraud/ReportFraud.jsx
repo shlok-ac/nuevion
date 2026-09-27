@@ -39,6 +39,103 @@ export default function ReportFraud() {
   };
 
   const nextStep = () => {
+    const stepErrors = {};
+
+    if (currentStep === 1) {
+      const name = formData.fullName.trim();
+      const mobile = formData.mobile.trim();
+
+      if (!name) {
+        stepErrors.fullName = "Full name is required";
+      } else if (name.length < 3) {
+        stepErrors.fullName = "Enter a valid full name";
+      } else if (!/[A-Za-z]/.test(name)) {
+        stepErrors.fullName = "Name must contain letters";
+      } else if (!/^[A-Za-z .'-]+$/.test(name)) {
+        stepErrors.fullName =
+          "Name can contain only letters, spaces, dots or hyphens";
+      }
+
+      if (!mobile) {
+        stepErrors.mobile = "Mobile number is required";
+      } else if (!/^[6-9]\d{9}$/.test(mobile)) {
+        stepErrors.mobile =
+          "Enter a valid 10-digit Indian mobile number";
+      }
+    }
+
+    if (currentStep === 2) {
+      if (!formData.description.trim()) {
+        stepErrors.description = "Incident description is required";
+      }
+
+      if (!formData.incidentDate) {
+        stepErrors.incidentDate = "Incident date is required";
+      } else {
+        const today = new Date().toISOString().split("T")[0];
+
+        if (formData.incidentDate > today) {
+          stepErrors.incidentDate =
+            "Incident date cannot be in the future";
+        }
+
+        if (
+          formData.incidentDate === today &&
+          formData.incidentTime
+        ) {
+          const now = new Date();
+          const currentTime =
+            now.getHours().toString().padStart(2, "0") +
+            ":" +
+            now.getMinutes().toString().padStart(2, "0");
+
+          if (formData.incidentTime > currentTime) {
+            stepErrors.incidentTime =
+              "Incident time cannot be in the future";
+          }
+        }
+      }
+    }
+
+    if (currentStep === 3) {
+      if (!formData.bankName.trim()) {
+        stepErrors.bankName =
+          "Bank / financial institution is required";
+      }
+
+      const accountNumber = formData.accountNumber.trim();
+
+      if (!accountNumber) {
+        stepErrors.accountNumber = "Account number is required";
+      } else if (!/^\d{9,18}$/.test(accountNumber)) {
+        stepErrors.accountNumber =
+          "Account number must contain 9 to 18 digits";
+      }
+
+      if (!formData.transactionType) {
+        stepErrors.transactionType =
+          "Transaction type is required";
+      }
+
+      const fraudAmount = Number(formData.fraudAmount);
+
+      if (!formData.fraudAmount.trim()) {
+        stepErrors.fraudAmount = "Fraud amount is required";
+      } else if (
+        !Number.isFinite(fraudAmount) ||
+        fraudAmount <= 0
+      ) {
+        stepErrors.fraudAmount =
+          "Fraud amount must be greater than 0";
+      }
+    }
+
+    setErrors(stepErrors);
+
+    if (Object.keys(stepErrors).length > 0) {
+      return;
+    }
+
     if (currentStep < 4) {
       setCurrentStep((previous) => previous + 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -968,6 +1065,12 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
                     }
                     placeholder="Enter bank name"
                   />
+
+                  {errors.bankName && (
+                    <small className="field-error">
+                      {errors.bankName}
+                    </small>
+                  )}
                 </div>
 
                 <div className="form-field">
@@ -989,6 +1092,12 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
                     }
                     placeholder="9–18 digit account number"
                   />
+
+                  {errors.accountNumber && (
+                    <small className="field-error">
+                      {errors.accountNumber}
+                    </small>
+                  )}
                 </div>
 
                 <div className="form-field">
@@ -1071,6 +1180,12 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
                   <small>
                     Enter the exact amount lost
                   </small>
+
+                  {errors.fraudAmount && (
+                    <small className="field-error">
+                      {errors.fraudAmount}
+                    </small>
+                  )}
                 </div>
 
               </div>

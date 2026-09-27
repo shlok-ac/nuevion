@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import CitizenLayout from "./components/CitizenLayout";
 import CitizenHome from "./pages/CitizenHome";
 import ReportFraud from "./pages/ReportFraud/ReportFraud";
@@ -16,8 +16,27 @@ function TrackPlaceholder() {
   const [complaint, setComplaint] = React.useState(null);
   const [error, setError] = React.useState("");
 
+  const DEMO_STATUSES = [
+    "Received",
+    "Under Investigation",
+    "Action Required",
+    "Resolved",
+  ];
+
+  const getDemoStatus = (complaintNumber) => {
+    if (!complaintNumber) return "Received";
+
+    const numbers = String(complaintNumber)
+      .replace(/\D/g, "");
+
+    const lastTwo = Number(numbers.slice(-2) || 0);
+
+    return DEMO_STATUSES[lastTwo % DEMO_STATUSES.length];
+  };
+
   const handleTrack = (e) => {
     e.preventDefault();
+
     setError("");
     setComplaint(null);
 
@@ -32,29 +51,64 @@ function TrackPlaceholder() {
       return;
     }
 
-    const data = JSON.parse(storedComplaint);
+    try {
+      const data = JSON.parse(storedComplaint);
 
-    const enteredId = complaintId.trim().toUpperCase();
-    const storedId = String(
-      data.complaintNumber || ""
-    ).toUpperCase();
+      const enteredId = complaintId.trim().toUpperCase();
 
-    const enteredMobile = mobile.trim();
-    const storedMobile = String(
-      data.mobile || ""
-    ).trim();
+      const storedId = String(
+        data.complaintNumber || ""
+      ).toUpperCase();
 
-    if (
-      enteredId === storedId &&
-      enteredMobile === storedMobile
-    ) {
-      setComplaint(data);
-    } else {
+      const enteredMobile = mobile.trim();
+
+      const storedMobile = String(
+        data.mobile || ""
+      ).trim();
+
+      if (
+        enteredId !== storedId ||
+        enteredMobile !== storedMobile
+      ) {
+        setError(
+          "Complaint ID or mobile number does not match our records."
+        );
+        return;
+      }
+
+      /*
+       * DEMO STATUS
+       *
+       * This is temporary for the SIH prototype.
+       * Later this value will come from the backend API.
+       */
+      const demoStatus = getDemoStatus(
+        data.complaintNumber
+      );
+
+      setComplaint({
+        ...data,
+        status: demoStatus,
+      });
+    } catch (err) {
+      console.error("Track complaint error:", err);
+
       setError(
-        "Complaint ID or mobile number does not match our records."
+        "Unable to read the complaint record. Please submit the complaint again."
       );
     }
   };
+
+  const statusOrder = [
+    "Received",
+    "Under Investigation",
+    "Action Required",
+    "Resolved",
+  ];
+
+  const currentStatusIndex = complaint
+    ? statusOrder.indexOf(complaint.status)
+    : -1;
 
   return (
     <div className="track-page">
@@ -133,97 +187,81 @@ function TrackPlaceholder() {
             <div className="track-result">
 
               <div className="track-result-header">
+
                 <div>
                   <span>Complaint Number</span>
+
                   <strong>
                     {complaint.complaintNumber}
                   </strong>
                 </div>
 
                 <span className="track-status">
-                  {complaint.status || "Received"}
+                  {complaint.status}
+                </span>
+
+              </div>
+
+              <div className="track-demo-notice">
+                <strong>SIH Prototype</strong>
+
+                <span>
+                  Status shown here is demo data for the
+                  current prototype. It will be connected
+                  to the live backend status later.
                 </span>
               </div>
 
               <div className="track-timeline">
 
-                <div className="timeline-item active">
-                  <span className="timeline-dot" />
+                {statusOrder.map(
+                  (status, index) => {
 
-                  <div>
-                    <strong>Received</strong>
-                    <p>
-                      Your complaint has been received.
-                    </p>
-                  </div>
-                </div>
+                    const isActive =
+                      index <= currentStatusIndex;
 
-                <div
-                  className={`timeline-item ${
-                    complaint.status ===
-                      "Under Investigation" ||
-                    complaint.status ===
-                      "Action Required" ||
-                    complaint.status ===
-                      "Resolved"
-                      ? "active"
-                      : ""
-                  }`}
-                >
-                  <span className="timeline-dot" />
+                    return (
+                      <div
+                        key={status}
+                        className={`timeline-item ${
+                          isActive
+                            ? "active"
+                            : ""
+                        }`}
+                      >
 
-                  <div>
-                    <strong>
-                      Under Investigation
-                    </strong>
+                        <span className="timeline-dot" />
 
-                    <p>
-                      Complaint is being reviewed by
-                      the concerned team.
-                    </p>
-                  </div>
-                </div>
+                        <div>
 
-                <div
-                  className={`timeline-item ${
-                    complaint.status ===
-                      "Action Required" ||
-                    complaint.status === "Resolved"
-                      ? "active"
-                      : ""
-                  }`}
-                >
-                  <span className="timeline-dot" />
+                          <strong>
+                            {status}
+                          </strong>
 
-                  <div>
-                    <strong>
-                      Action Required
-                    </strong>
+                          <p>
+                            {status ===
+                              "Received" &&
+                              "Your complaint has been successfully received."}
 
-                    <p>
-                      Additional information may be
-                      requested if required.
-                    </p>
-                  </div>
-                </div>
+                            {status ===
+                              "Under Investigation" &&
+                              "The complaint is being reviewed by the concerned team."}
 
-                <div
-                  className={`timeline-item ${
-                    complaint.status === "Resolved"
-                      ? "active"
-                      : ""
-                  }`}
-                >
-                  <span className="timeline-dot" />
+                            {status ===
+                              "Action Required" &&
+                              "Additional information may be requested if required."}
 
-                  <div>
-                    <strong>Resolved</strong>
+                            {status ===
+                              "Resolved" &&
+                              "The complaint has been resolved."}
+                          </p>
 
-                    <p>
-                      The complaint has been resolved.
-                    </p>
-                  </div>
-                </div>
+                        </div>
+
+                      </div>
+                    );
+                  }
+                )}
 
               </div>
 
@@ -235,6 +273,7 @@ function TrackPlaceholder() {
 
                   <div>
                     <span>Applicant</span>
+
                     <strong>
                       {complaint.fullName ||
                         "Not available"}
@@ -243,6 +282,7 @@ function TrackPlaceholder() {
 
                   <div>
                     <span>Mobile</span>
+
                     <strong>
                       {complaint.mobile ||
                         "Not available"}
@@ -251,6 +291,7 @@ function TrackPlaceholder() {
 
                   <div>
                     <span>Incident Date</span>
+
                     <strong>
                       {complaint.incidentDate ||
                         "Not available"}
@@ -259,10 +300,29 @@ function TrackPlaceholder() {
 
                   <div>
                     <span>Fraud Amount</span>
+
                     <strong>
                       INR{" "}
                       {complaint.fraudAmount ||
                         "0"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Transaction Type</span>
+
+                    <strong>
+                      {complaint.transactionType ||
+                        "Not available"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Bank</span>
+
+                    <strong>
+                      {complaint.bankName ||
+                        "Not available"}
                     </strong>
                   </div>
 
@@ -280,6 +340,254 @@ function TrackPlaceholder() {
   );
 }
 
+function MyComplaints() {
+  const navigate = useNavigate();
+  const [complaint, setComplaint] = React.useState(null);
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem("nirikshanLatestComplaint");
+      if (saved) setComplaint(JSON.parse(saved));
+    } catch (error) {
+      console.error("Unable to load complaint:", error);
+    }
+  }, []);
+
+  const getDemoStatus = (complaintNumber) => {
+    const statuses = [
+      "Received",
+      "Under Investigation",
+      "Action Required",
+      "Resolved"
+    ];
+
+    const numbers = String(complaintNumber || "").replace(/\D/g, "");
+    const lastTwo = Number(numbers.slice(-2) || 0);
+
+    return statuses[lastTwo % statuses.length];
+  };
+
+  if (!complaint) {
+    return (
+      <section className="track-page complaints-page">
+        <div className="track-card complaints-empty">
+          <div className="track-icon">✓</div>
+          <h1>No complaints found</h1>
+          <p>
+            You have not submitted a complaint from this browser yet.
+          </p>
+
+          <button
+            className="primary-button"
+            onClick={() => navigate("/report")}
+          >
+            Report Fraud
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  const status = getDemoStatus(complaint.complaintNumber);
+
+  return (
+    <section className="track-page complaints-page">
+      <div className="track-header">
+        <span className="eyebrow">CITIZEN SERVICES</span>
+
+        <h1>My Complaints</h1>
+
+        <p>
+          View your submitted cyber fraud complaint, acknowledgement and
+          current prototype status.
+        </p>
+      </div>
+
+      <div className="track-card complaint-record">
+
+        {/* COMPLAINT OVERVIEW */}
+        <div className="complaint-section-heading">
+          <span>01</span>
+          <div>
+            <h3>Complaint Overview</h3>
+            <p>Reference number and current complaint status</p>
+          </div>
+        </div>
+
+        <div className="complaint-record-top">
+          <div>
+            <span className="field-label">Complaint Number</span>
+            <h2>{complaint.complaintNumber}</h2>
+          </div>
+
+          <div className="complaint-status-block">
+            <span className="field-label">Current Status</span>
+            <span className="status-badge">{status}</span>
+          </div>
+        </div>
+
+        {/* COMPLAINT DETAILS */}
+        <div className="complaint-section-heading">
+          <span>02</span>
+          <div>
+            <h3>Complaint Details</h3>
+            <p>Information submitted with your complaint</p>
+          </div>
+        </div>
+
+        <div className="complaint-details-grid">
+          <div>
+            <span>Applicant</span>
+            <strong>{complaint.fullName || "—"}</strong>
+          </div>
+
+          <div>
+            <span>Mobile</span>
+            <strong>{complaint.mobile || "—"}</strong>
+          </div>
+
+          <div>
+            <span>Incident Date</span>
+            <strong>{complaint.incidentDate || "—"}</strong>
+          </div>
+
+          <div>
+            <span>Fraud Amount</span>
+            <strong>₹{complaint.fraudAmount || "0"}</strong>
+          </div>
+
+          <div>
+            <span>Bank / Institution</span>
+            <strong>{complaint.bankName || "—"}</strong>
+          </div>
+
+          <div>
+            <span>Transaction Type</span>
+            <strong>{complaint.transactionType || "—"}</strong>
+          </div>
+        </div>
+
+        {/* ACTIONS */}
+        <div className="complaint-section-heading">
+          <span>03</span>
+          <div>
+            <h3>Available Actions</h3>
+            <p>Manage and access services related to this complaint</p>
+          </div>
+        </div>
+
+        <div className="complaint-action-grid">
+          <button
+            className="complaint-action-card"
+            onClick={() => navigate("/track")}
+          >
+            <span className="complaint-action-icon">01</span>
+            <span>
+              <strong>Track Complaint</strong>
+              <small>
+                Check the complaint timeline and view its current status.
+              </small>
+            </span>
+            <b>→</b>
+          </button>
+
+          <button
+            className="complaint-action-card"
+            onClick={() =>
+              navigate(
+                `/complaint/${complaint.complaintNumber}/confirmation`
+              )
+            }
+          >
+            <span className="complaint-action-icon">02</span>
+            <span>
+              <strong>View Acknowledgement</strong>
+              <small>
+                Review your submitted details and acknowledgement record.
+              </small>
+            </span>
+            <b>→</b>
+          </button>
+
+          <button
+            className="complaint-action-card"
+            onClick={() => navigate("/report")}
+          >
+            <span className="complaint-action-icon">03</span>
+            <span>
+              <strong>Report Another Fraud</strong>
+              <small>
+                Start a new complaint for a separate cyber fraud incident.
+              </small>
+            </span>
+            <b>→</b>
+          </button>
+        </div>
+
+        {/* WHAT HAPPENS NEXT */}
+        <div className="complaint-section-heading">
+          <span>04</span>
+          <div>
+            <h3>What Happens Next</h3>
+            <p>Typical stages after a cyber fraud complaint is submitted</p>
+          </div>
+        </div>
+
+        <div className="complaint-next-steps">
+          <div>
+            <span>01</span>
+            <div>
+              <strong>Complaint Received</strong>
+              <p>
+                Your complaint is registered with a unique complaint number
+                for reference.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <span>02</span>
+            <div>
+              <strong>Verification &amp; Investigation</strong>
+              <p>
+                The information submitted with the complaint can be reviewed
+                as part of the investigation process.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <span>03</span>
+            <div>
+              <strong>Status Updates</strong>
+              <p>
+                The complaint may progress through different investigation
+                stages as action is taken.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <span>04</span>
+            <div>
+              <strong>Further Action</strong>
+              <p>
+                If additional information is required, the citizen may be
+                asked to provide it.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <p className="prototype-note">
+          <strong>SIH Prototype:</strong> Complaint information and status are
+          currently stored locally for demonstration. Live backend tracking
+          will be connected later.
+        </p>
+      </div>
+    </section>
+  );
+}
 
 function FAQPlaceholder() {
   const [openIndex, setOpenIndex] = React.useState(null);
@@ -440,6 +748,7 @@ export default function CitizenPortal() {
         <Route path="/" element={<CitizenHome />} />
         <Route path="/report" element={<ReportFraud />} />
         <Route path="/track" element={<TrackPlaceholder />} />
+          <Route path="/complaints" element={<MyComplaints />} />
         <Route path="/faq" element={<FAQPlaceholder />} />
         <Route path="/login" element={<LoginPlaceholder />} />
         <Route
