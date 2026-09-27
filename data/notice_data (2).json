@@ -1,0 +1,21 @@
+{
+    "complaint_id": "1930_2026_3031",
+    "timestamp": "2026-09-27 04:32:05 IST",
+    "target_atm": {
+        "atm_id": "ATM100459",
+        "bank_name": "HDFC Bank",
+        "latitude": 23.016729,
+        "longitude": 72.646921,
+        "risk_score": 91.03,
+        "risk_level": "HIGH",
+        "confidence": 100.0
+    },
+    "investigation": {
+        "fraud_amount": 60000,
+        "root_mule": "ACC_7878999",
+        "terminal_account": "ACC_7878999_L2_1_CASH_RUNNER",
+        "transfer_mode": "UPI",
+        "scam_category": "FINANCIAL_FRAUD",
+        "statutory_act": "Section 106 BNSS, 2023"
+    }
+}
