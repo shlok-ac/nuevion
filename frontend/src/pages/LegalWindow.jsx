@@ -6,12 +6,16 @@ import { Button } from "@/components/ui/button";
 import CaseSelector from "@/components/command/CaseSelector";
 import { Printer, Download, FileText } from "lucide-react";
 import FreezeNoticeDoc from "@/components/command/FreezeNoticeDoc";
+import PageHeader from "@/components/command/PageHeader";
 import { cases } from "@/lib/investigationData";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 
 export default function LegalWindow() {
   const { state } = useLocation();
-  const initialCase = cases.find((c) => c.muleChainId === state?.caseId) ?? cases[0];
+  const [searchParams] = useSearchParams();
+  const initialCase = cases.find((c) => c.id === searchParams.get("case"))
+    ?? cases.find((c) => c.muleChainId === state?.caseId)
+    ?? cases[0];
   const [caseId, setCaseId] = useState(initialCase.id);
   const noticeRef = useRef(null);
 
@@ -67,14 +71,11 @@ export default function LegalWindow() {
   };
 
   return (
-    <div className="space-y-4 p-6">
-      <style>{`@media print { body * { visibility: hidden !important; } #freeze-notice-print, #freeze-notice-print * { visibility: visible !important; } #freeze-notice-print { position: absolute; left: 0; top: 0; width: 100%; padding: 24px; } }`}</style>
-      <div>
-        <h2 className="text-lg font-semibold">Legal Window — §106 BNSS Freeze Notice</h2>
-        <p className="text-sm text-muted-foreground">
-          One-click generation of the freeze notice addressed to bank nodal officers. Print or export to PDF.
-        </p>
-      </div>
+    <div className="space-y-6 p-6">
+      <PageHeader
+        title="Legal Window — §106 BNSS Freeze Notice"
+        description="One-click generation of the freeze notice addressed to bank nodal officers."
+      />
 
       <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
         <Card>
@@ -107,6 +108,7 @@ export default function LegalWindow() {
                 <Download className="h-4 w-4" /> PDF
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">Print or export to PDF.</p>
           </CardContent>
         </Card>
 
@@ -116,6 +118,11 @@ export default function LegalWindow() {
           </div>
         </div>
       </div>
+
+      {/* Print rules are global, so this is kept last: it leaves PageHeader as the
+          first child, which stops `space-y-6` from pushing this page's heading
+          below the ones on every other page. */}
+      <style>{`@media print { body * { visibility: hidden !important; } #freeze-notice-print, #freeze-notice-print * { visibility: visible !important; } #freeze-notice-print { position: absolute; left: 0; top: 0; width: 100%; padding: 24px; } }`}</style>
     </div>
   );
 }

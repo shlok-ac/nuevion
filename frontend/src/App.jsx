@@ -5,6 +5,8 @@ import ScrollToTop from "./components/ScrollToTop";
 
 import CommandLayout from "@/components/command/CommandLayout";
 import CommandDashboard from "@/pages/CommandDashboard";
+import CaseManagement from "@/pages/CaseManagement";
+import CaseDetails from "@/pages/CaseDetails";
 import MoneyTrail from "@/pages/MoneyTrail";
 import LegalWindow from "@/pages/LegalWindow";
 import FreezeSimulation from "@/pages/FreezeSimulation";
@@ -21,6 +23,8 @@ function App() {
       <Routes>
         <Route element={<CommandLayout />}>
           <Route path="/" element={<CommandDashboard />} />
+          <Route path="/case-management" element={<CaseManagement />} />
+          <Route path="/cases/:caseId" element={<CaseDetails />} />
           <Route path="/atm-intelligence" element={<ATMIntelligence />} />
           <Route path="/money-trail" element={<MoneyTrail />} />
           <Route path="/legal" element={<LegalWindow />} />
