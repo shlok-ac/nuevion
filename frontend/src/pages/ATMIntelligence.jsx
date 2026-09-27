@@ -517,7 +517,7 @@ export default function ATMIntelligence() {
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-base font-medium text-foreground">Ranked ATM watchlist</CardTitle>
+            <CardTitle className="text-base font-medium text-foreground">Ranked ATM Watchlist</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               Predicted cash-out locations for {selectedRegion.name}
             </p>

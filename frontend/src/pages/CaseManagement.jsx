@@ -242,7 +242,7 @@ export default function CaseManagement() {
       <PageHeader title="Case Management" description="Manage and review investigation cases." />
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Find cases</CardTitle>
+          <CardTitle className="text-base">Find cases</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="relative">
@@ -307,8 +307,8 @@ export default function CaseManagement() {
       </Card>
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0 border-b bg-muted/20 px-5 py-4">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            <ClipboardList className="h-5 w-5 text-muted-foreground" />
             Cases
           </CardTitle>
           <span className="text-xs text-muted-foreground">
