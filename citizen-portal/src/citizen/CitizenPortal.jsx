@@ -734,7 +734,332 @@ function FAQPlaceholder() {
 }
 
 function LoginPlaceholder() {
-  return <h1 style={{ padding: "40px" }}>Login</h1>;
+  const [mobile, setMobile] = React.useState("");
+  const [otp, setOtp] = React.useState("");
+  const [otpSent, setOtpSent] = React.useState(false);
+  const [loggedIn, setLoggedIn] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  const sendOTP = () => {
+    setError("");
+
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      setError("Enter a valid 10-digit Indian mobile number.");
+      return;
+    }
+
+    setOtpSent(true);
+  };
+
+  const verifyOTP = () => {
+    setError("");
+
+    if (otp !== "1234") {
+      setError("Invalid OTP. For this prototype, use 1234.");
+      return;
+    }
+
+    localStorage.setItem(
+      "arthavyuhCitizenLogin",
+      JSON.stringify({
+        mobile,
+        loggedIn: true,
+        loggedInAt: new Date().toISOString(),
+      })
+    );
+
+    setLoggedIn(true);
+  };
+
+  const logout = () => {
+    localStorage.removeItem("arthavyuhCitizenLogin");
+    setMobile("");
+    setOtp("");
+    setOtpSent(false);
+    setLoggedIn(false);
+    setError("");
+  };
+
+  if (loggedIn) {
+    return (
+      <div
+        style={{
+          minHeight: "60vh",
+          padding: "60px 20px",
+          background: "#F3F5F8",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "520px",
+            margin: "0 auto",
+            background: "#fff",
+            padding: "36px",
+            borderRadius: "10px",
+            border: "1px solid #DCE2EA",
+            boxShadow: "0 8px 30px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div
+            style={{
+              width: "54px",
+              height: "54px",
+              borderRadius: "50%",
+              background: "#EAF6EE",
+              color: "#138808",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "28px",
+              fontWeight: "700",
+              marginBottom: "18px",
+            }}
+          >
+            ✓
+          </div>
+
+          <h1
+            style={{
+              color: "#0A3161",
+              marginBottom: "8px",
+            }}
+          >
+            Citizen Login Successful
+          </h1>
+
+          <p
+            style={{
+              color: "#5B6472",
+              marginBottom: "24px",
+            }}
+          >
+            You are logged in to the ArthaVyuh Citizen Portal.
+          </p>
+
+          <div
+            style={{
+              background: "#F3F5F8",
+              padding: "14px 16px",
+              borderRadius: "6px",
+              marginBottom: "24px",
+            }}
+          >
+            <strong>Registered Mobile</strong>
+            <br />
+            <span style={{ color: "#5B6472" }}>
+              {mobile}
+            </span>
+          </div>
+
+          <button
+            onClick={logout}
+            style={{
+              width: "100%",
+              padding: "13px",
+              border: "none",
+              borderRadius: "5px",
+              background: "#0A3161",
+              color: "#fff",
+              fontWeight: "700",
+              cursor: "pointer",
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        minHeight: "60vh",
+        padding: "60px 20px",
+        background: "#F3F5F8",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "520px",
+          margin: "0 auto",
+          background: "#fff",
+          padding: "36px",
+          borderRadius: "10px",
+          border: "1px solid #DCE2EA",
+          boxShadow: "0 8px 30px rgba(0,0,0,0.06)",
+        }}
+      >
+        <h1
+          style={{
+            color: "#0A3161",
+            marginBottom: "8px",
+          }}
+        >
+          Citizen Login
+        </h1>
+
+        <p
+          style={{
+            color: "#5B6472",
+            marginBottom: "28px",
+          }}
+        >
+          Login using your registered mobile number.
+        </p>
+
+        <label
+          style={{
+            display: "block",
+            fontWeight: "700",
+            marginBottom: "8px",
+            color: "#1C2230",
+          }}
+        >
+          Mobile Number
+        </label>
+
+        <input
+          type="tel"
+          inputMode="numeric"
+          maxLength={10}
+          placeholder="Enter 10-digit mobile number"
+          value={mobile}
+          onChange={(e) =>
+            setMobile(e.target.value.replace(/\D/g, ""))
+          }
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            padding: "13px",
+            border: "1px solid #DCE2EA",
+            borderRadius: "5px",
+            fontSize: "15px",
+            marginBottom: "14px",
+          }}
+        />
+
+        {!otpSent ? (
+          <button
+            onClick={sendOTP}
+            style={{
+              width: "100%",
+              padding: "13px",
+              border: "none",
+              borderRadius: "5px",
+              background: "#0A3161",
+              color: "#fff",
+              fontWeight: "700",
+              cursor: "pointer",
+            }}
+          >
+            Send OTP
+          </button>
+        ) : (
+          <>
+            <label
+              style={{
+                display: "block",
+                fontWeight: "700",
+                marginBottom: "8px",
+                marginTop: "18px",
+                color: "#1C2230",
+              }}
+            >
+              Enter OTP
+            </label>
+
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="Enter OTP"
+              value={otp}
+              onChange={(e) =>
+                setOtp(e.target.value.replace(/\D/g, ""))
+              }
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "13px",
+                border: "1px solid #DCE2EA",
+                borderRadius: "5px",
+                fontSize: "15px",
+                marginBottom: "14px",
+                letterSpacing: "4px",
+              }}
+            />
+
+            <button
+              onClick={verifyOTP}
+              style={{
+                width: "100%",
+                padding: "13px",
+                border: "none",
+                borderRadius: "5px",
+                background: "#138808",
+                color: "#fff",
+                fontWeight: "700",
+                cursor: "pointer",
+              }}
+            >
+              Verify OTP
+            </button>
+
+            <button
+              onClick={() => {
+                setOtpSent(false);
+                setOtp("");
+                setError("");
+              }}
+              style={{
+                width: "100%",
+                padding: "11px",
+                marginTop: "10px",
+                border: "1px solid #DCE2EA",
+                borderRadius: "5px",
+                background: "#fff",
+                color: "#0A3161",
+                fontWeight: "600",
+                cursor: "pointer",
+              }}
+            >
+              Change Mobile Number
+            </button>
+          </>
+        )}
+
+        {error && (
+          <div
+            style={{
+              marginTop: "16px",
+              padding: "11px 13px",
+              borderRadius: "5px",
+              background: "#FDEDEC",
+              color: "#C0392B",
+              fontSize: "14px",
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        <div
+          style={{
+            marginTop: "24px",
+            padding: "12px",
+            background: "#FFF8ED",
+            borderLeft: "3px solid #FF9933",
+            color: "#5B6472",
+            fontSize: "13px",
+          }}
+        >
+          <strong>SIH Prototype:</strong> OTP authentication is simulated
+          for demonstration. Use <strong>1234</strong> as the OTP.
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ConfirmationPlaceholder() {
