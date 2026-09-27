@@ -49,7 +49,8 @@ export default function Sidebar() {
         <Image src={LOGO_URL} fittingType="fit" className="h-11 w-11 shrink-0" />
         {!isCollapsed && (
           <div className="leading-tight">
-            <p className="text-[13px] font-semibold">ArthaVyūh</p>
+            <p className="text-[16px] font-semibold">ArthaVyūh</p>
+            
             
           </div>
         )}
