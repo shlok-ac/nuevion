@@ -1,0 +1,205 @@
+/* ------------------------------------------------------------------
+   Caller Location + ATM Risk Zone map
+   Scoped styles for CallerLocationAtmRiskZone.jsx. Kept in its own file
+   (rather than appended to index.css) so the map stays self-contained and
+   can be removed without touching the app-wide stylesheet.
+
+   Leaflet itself comes from index.html. The shadcn Card primitives come from the
+   app: the map renders inside a shadcn Card on the ATM Intelligence page, so the
+   component's own card chrome is neutralised below to avoid a card nested inside
+   a card. That rule is deliberately scoped under .city-map-card rather than left
+   global, so a bare .card class elsewhere in the app can never be affected by
+   this stylesheet.
+   ------------------------------------------------------------------ */
+
+.city-map-card.card {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.city-map-card {
+  position: relative;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/* Height matches the h-[340px] slot this map occupies on ATM Intelligence,
+   so the Regions panel beside it stays aligned. */
+.city-map,
+.caller-map {
+  width: 100%;
+  height: 340px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #eef2f7;
+  box-shadow: inset 0 0 0 1px rgb(15 31 61 / 8%);
+}
+
+.city-map .leaflet-container {
+  font: inherit;
+  background: #eef2f7;
+}
+
+.city-map .leaflet-control-zoom {
+  margin: 12px;
+}
+
+.caller-map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.city-map-error {
+  min-height: 340px;
+  display: grid;
+  place-items: center;
+  color: #b91c1c;
+  background: #fff7f7;
+  border-radius: 10px;
+}
+
+.atm-popup h3,
+.caller-popup h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.atm-popup p,
+.caller-popup p {
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.caller-pin {
+  background: transparent;
+  border: 0;
+}
+
+.caller-pin span {
+  display: block;
+  font-size: 25px;
+  line-height: 28px;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 35%));
+}
+
+/* Summary strip: label above value in a single bordered group, so the three
+   facts read as one unit instead of three loose runs of text. */
+.caller-zone-summary {
+  display: flex;
+  padding: 12px 0 0;
+}
+
+.caller-zone-summary__group {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--muted) / 0.45);
+  overflow: hidden;
+}
+
+.caller-zone-summary__item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px 14px;
+}
+
+.caller-zone-summary__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+}
+
+.caller-zone-summary__value {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Inset so the dividers stop short of the group's top and bottom edges. */
+.caller-zone-summary__divider {
+  width: 1px;
+  margin: 8px 0;
+  background: hsl(var(--border));
+}
+
+/* Legend: two labelled groups split by a hairline. The risk swatches keep the
+   exact hex values the map's circle markers use, so the legend stays truthful
+   to what is actually drawn on the map. */
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  flex-wrap: wrap;
+  padding: 12px 0 0;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+.heatmap-legend__heading {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--foreground) / 0.5);
+}
+
+.heatmap-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.heatmap-legend__divider {
+  width: 1px;
+  height: 14px;
+  background: hsl(var(--border));
+}
+
+.heatmap-legend__swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.heatmap-legend__swatch--low { background: #166534; }
+.heatmap-legend__swatch--medium { background: #854d0e; }
+.heatmap-legend__swatch--high { background: #9a3412; }
+.heatmap-legend__swatch--critical { background: #991b1b; }
+
+.caller-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 2px solid hsl(var(--background));
+  box-shadow: 0 0 0 1px #2563eb;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.caller-legend-zone {
+  width: 18px;
+  height: 9px;
+  border: 1.5px dashed #2563eb;
+  background: rgb(37 99 235 / 10%);
+  display: inline-block;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
