@@ -473,7 +473,7 @@ export default function CitizenHome() {
         <div className="section-heading enhanced-heading">
 
           <span>
-            NIRIKSHAN WORKFLOW
+            ARTHAVYUH WORKFLOW
           </span>
 
           <h2>
@@ -703,7 +703,7 @@ export default function CitizenHome() {
 
         <div>
           <strong>
-            NIRIKSHAN AI · SIH PROTOTYPE
+            ARTHAVYUH · SIH PROTOTYPE
           </strong>
 
           <span>

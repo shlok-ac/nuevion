@@ -14,6 +14,7 @@ export default function ReportFraud() {
   const navigate = useNavigate();
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [errors, setErrors] = useState({});
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -31,19 +32,121 @@ export default function ReportFraud() {
     evidence: [],
   });
 
+
+  const validateFullName = (value) => {
+  const name = value.trim();
+
+  if (!name) return "Full name is required";
+  if (name.length < 3) return "Enter a valid full name";
+  if (!/[A-Za-z]/.test(name)) return "Name must contain letters";
+  if (!/^[A-Za-z .'-]+$/.test(name)) {
+    return "Name can contain only letters, spaces, dots or hyphens";
+  }
+
+  return "";
+};
+
+
+  const validateMobile = (value) => {
+  const mobile = value.trim();
+
+  if (!mobile) return "Mobile number is required";
+  if (!/^[6-9]\d{9}$/.test(mobile)) {
+    return "Enter a valid 10-digit Indian mobile number";
+  }
+
+  return "";
+};
+
   const updateField = (field, value) => {
-    setFormData((previous) => ({
-      ...previous,
-      [field]: value,
+  setFormData((prev) => ({
+    ...prev,
+    [field]: value,
+  }));
+
+  if (field === "fullName") {
+    setErrors((prev) => ({
+      ...prev,
+      fullName: validateFullName(value),
     }));
-  };
+  }
+};
 
   const nextStep = () => {
-    if (currentStep < 4) {
-      setCurrentStep((previous) => previous + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+  let stepErrors = {};
+
+  if (currentStep === 1) {
+    const fullNameError = validateFullName(formData.fullName);
+    const mobileError = validateMobile(formData.mobile);
+
+    if (fullNameError) {
+      stepErrors.fullName = fullNameError;
     }
-  };
+
+    if (mobileError) {
+      stepErrors.mobile = mobileError;
+    }
+
+    if (formData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      if (!emailRegex.test(formData.email.trim())) {
+        stepErrors.email = "Enter a valid email address";
+      }
+    }
+  }
+
+  if (currentStep === 2) {
+  if (!formData.description.trim()) {
+    stepErrors.description = "Incident description is required";
+  }
+
+  if (!formData.incidentDate) {
+    stepErrors.incidentDate = "Incident date is required";
+  } else {
+    const selectedDate = new Date(`${formData.incidentDate}T00:00:00`);
+    const today = new Date();
+
+    today.setHours(0, 0, 0, 0);
+
+    if (selectedDate > today) {
+      stepErrors.incidentDate = "Incident date cannot be in the future";
+    }
+  }
+
+  if (
+    formData.incidentDate ===
+    new Date().toISOString().split("T")[0]
+  ) {
+    if (formData.incidentTime) {
+      const now = new Date();
+
+      const currentTime =
+        now.getHours().toString().padStart(2, "0") +
+        ":" +
+        now.getMinutes().toString().padStart(2, "0");
+
+      if (formData.incidentTime > currentTime) {
+        stepErrors.incidentTime =
+          "Incident time cannot be in the future";
+      }
+    }
+  }
+}
+
+  setErrors(stepErrors);
+
+  if (Object.keys(stepErrors).length > 0) {
+    return;
+  }
+
+  if (currentStep < 4) {
+    setCurrentStep(currentStep + 1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+};
+
+  
 
   const previousStep = () => {
     if (currentStep > 1) {
@@ -693,12 +796,6 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
     JSON.stringify(complaint)
   );
 
-  // Generate the PDF from the SAME
-  // complaint object that was stored.
-  generatePDF(
-    complaintNumber,
-    complaint
-  );
 
   navigate(
     `/complaint/${complaintNumber}/confirmation`
@@ -792,6 +889,11 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
                     }
                     placeholder="Enter your full name"
                   />
+
+		 {errors.fullName && (
+  <div className="field-error">{errors.fullName}</div>
+)}
+
                 </div>
 
                 <div className="form-field">
@@ -884,6 +986,8 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
                     }
                     placeholder="Describe the incident in detail..."
                   />
+		 
+		{errors.description ? <div className="field-error">{errors.description}</div> : null}
 
                   <small>
                     Include relevant information such
@@ -899,6 +1003,7 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
 
                   <input
                     type="date"
+		    max={new Date().toISOString().split("T")[0]}
                     value={formData.incidentDate}
                     onChange={(e) =>
                       updateField(
@@ -907,6 +1012,12 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
                       )
                     }
                   />
+
+
+		{errors.incidentDate && (
+  <div className="field-error">{errors.incidentDate}</div>
+)}	
+
                 </div>
 
                 <div className="form-field">
@@ -924,6 +1035,14 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
                       )
                     }
                   />
+			
+		{errors.incidentTime ? (
+  <div className="field-error">
+    {errors.incidentTime}
+  </div>
+) : null}			 
+
+
                 </div>
 
               </div>
