@@ -2,10 +2,13 @@
  * Complaint ingestion and lookup.
  *
  * A portal submission auto-provisions a case and an alert, so anything filed in the
- * citizen portal is immediately visible on the command center.
+ * citizen portal is immediately visible on the command center. The command center reads
+ * generated files rather than the database, so the write also triggers a rebuild (see
+ * services/liveSync.js) — filing a complaint no longer needs a manual `npm run sync`.
  */
 const express = require("express");
 const { get, run, transaction } = require("../config/db");
+const { requestSync } = require("../services/liveSync");
 
 const router = express.Router();
 
@@ -78,6 +81,10 @@ router.post("/complaints", (req, res) => {
 
     return { complaintId, caseId, caseNumber };
   });
+
+  // Scheduled after the commit, so the rebuild reads the new rows. The response is sent
+  // first — the rebuild is debounced and runs on a later tick, off the request path.
+  requestSync(`portal complaint ${complaintNumber}`);
 
   res.status(201).json({ success: true, complaintNumber, priority, ...created });
 });

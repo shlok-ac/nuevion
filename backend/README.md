@@ -5,9 +5,10 @@ A working end-to-end data pipeline for the cybercrime command center, built to r
 
 ```
 citizen-portal ──POST /complaints──┐
-                                 ├──► API ──► SQLite (node:sqlite) ──► npm run sync ──► frontend data files
-helpline text  ──POST /nlp/extract─┘                    │
-                                                      └──► Random Forest (trains in-process)
+                                 ├──► API ──► SQLite (node:sqlite) ──┐
+helpline text  ──POST /nlp/extract─┘                    │                 │
+                                                      └──► Random Forest ├──► frontend data files
+                                                            (trains in-process)   (rebuilt automatically)
 ```
 
 ## Quick start
@@ -28,8 +29,36 @@ cd frontend      && npm run dev    # command center on http://localhost:5173
 cd citizen-portal && npm run dev   # citizen portal  on http://localhost:5174
 ```
 
-To make a new portal filing or helpline call appear in the UI, re-run `npm run sync`
-and refresh the command center.
+`npm run sync` is only needed for the **initial** build. From then on the API rebuilds the
+command center's data files itself, so a portal filing or helpline call shows up on the
+dashboard on its own — refresh the command center and it is there.
+
+## Automatic rebuilds
+
+The command center reads two generated files rather than the database, so anything written
+to SQLite has to be projected into them. `services/liveSync.js` does that automatically
+whenever a write route commits:
+
+| Trigger | Route |
+|---|---|
+| Citizen files a complaint | `POST /api/v1/complaints` |
+| Helpline call is triaged | `POST /api/v1/nlp/extract` |
+| Analyst edits triage | `PATCH /api/v1/cases/:id` |
+| Model is retrained | `POST /api/v1/ml/retrain` |
+
+The rebuild is **debounced** (250ms by default), so a burst of filings costs one pass rather
+than one per complaint, and it is **scheduled, never awaited** — the citizen gets their
+complaint number back immediately and the files catch up a moment later. It is also
+**failure-isolated**: a rebuild error is logged and recorded in `GET /api/v1/sync`, but can
+never fail a complaint that is already committed.
+
+```bash
+curl localhost:5000/api/v1/sync            # last rebuild status
+curl -X POST localhost:5000/api/v1/sync    # force one now
+```
+
+Set `AUTO_SYNC=false` to turn the automatic rebuilds off and go back to running
+`npm run sync` by hand.
 
 ## Why these technologies
 
@@ -58,6 +87,8 @@ and refresh the command center.
 | `POST` | `/api/v1/ml/retrain` | Retrain and rescore every ATM |
 | `POST` | `/api/v1/ml/predict` | Score one ATM from raw features |
 | `POST` | `/api/v1/auth/login` | Issue a JWT (not enforced on reads) |
+| `GET` | `/api/v1/sync` | Last data-rebuild status |
+| `POST` | `/api/v1/sync` | Force a data rebuild now |
 
 ## The frontend is unchanged
 
@@ -90,8 +121,8 @@ analyst@demo.gov   admin@demo.gov   police@demo.gov   bank@demo.gov   →   Demo
 ## Tests
 
 ```bash
-npm test                            # NLP extraction (8 transcript cases + unit checks)
-node test/pipeline.test.js          # end-to-end against a running API (9 checks)
+npm test                            # NLP extraction (8 transcript cases) + data-rebuild checks
+node test/pipeline.test.js          # end-to-end against a running API (14 checks)
 ```
 
 ## Limitations

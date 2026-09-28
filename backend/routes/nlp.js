@@ -3,7 +3,8 @@
  *
  * Takes a 1930 call transcript, runs the rule-based extractor over it, and persists a
  * complaint + case + alert + extraction record so the result surfaces on the command
- * center exactly like a portal submission.
+ * center exactly like a portal submission. Persisting also schedules the command
+ * center's data rebuild, so a triaged call appears without a manual `npm run sync`.
  *
  * The ASR stage (faster-whisper / Bhashini) lives in ml/*.ipynb and needs Python,
  * which is not installed on the demo machine; this endpoint covers the extraction
@@ -12,6 +13,7 @@
 const express = require("express");
 const { all, get, run, transaction } = require("../config/db");
 const nlp = require("../services/nlp");
+const { requestSync } = require("../services/liveSync");
 
 const router = express.Router();
 
@@ -105,6 +107,8 @@ router.post("/nlp/extract", (req, res) => {
 
     return { complaintId, caseId, caseNumber };
   });
+
+  requestSync(`helpline triage ${complaintNumber}`);
 
   res.status(201).json({ success: true, complaintNumber, priority, ...created, extracted });
 });

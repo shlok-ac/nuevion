@@ -8,7 +8,8 @@
     "seed": "node db/seed.js",
     "sync": "node db/sync.js",
     "train": "node scripts/train.js",
-    "test": "node test/nlp.test.js"
+    "test": "node test/nlp.test.js && node test/liveSync.test.js",
+    "test:pipeline": "node test/pipeline.test.js"
   },
   "keywords": [],
   "author": "",

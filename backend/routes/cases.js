@@ -1,6 +1,7 @@
 /** Case listing and lookup. */
 const express = require("express");
 const { all, get, run } = require("../config/db");
+const { requestSync } = require("../services/liveSync");
 
 const router = express.Router();
 
@@ -54,6 +55,11 @@ router.patch("/cases/:caseId", (req, res) => {
     `UPDATE cases SET ${updates.join(", ")}, updated_at = ? WHERE id = ?`,
     [...values, new Date().toISOString().replace("T", " ").slice(0, 19), existing.id],
   );
+
+  // Triage edits are rendered on the dashboard, which reads the generated module, so the
+  // change has to be rebuilt into it. Scheduled, not awaited, to keep the PATCH fast.
+  requestSync(`case ${existing.case_number} triage update`);
+
   res.json(get("SELECT * FROM cases WHERE id = ?", [existing.id]));
 });
 

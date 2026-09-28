@@ -6,6 +6,7 @@
  */
 const express = require("express");
 const ml = require("../services/ml");
+const { requestSync } = require("../services/liveSync");
 
 const router = express.Router();
 
@@ -19,7 +20,12 @@ router.get("/ml/history", (req, res) => {
 
 router.post("/ml/retrain", (req, res) => {
   try {
-    res.json({ success: true, metrics: ml.train() });
+    const metrics = ml.train();
+    // Retraining rewrites every ATM's risk_score / risk_level, which the ATM
+    // Intelligence page and the region rankings are built from. Those live in the
+    // generated files, so push the new scores out to them.
+    requestSync("model retrain");
+    res.json({ success: true, metrics });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

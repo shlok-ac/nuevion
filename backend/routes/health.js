@@ -1,6 +1,7 @@
 /** Service health and row counts. */
 const express = require("express");
 const { get } = require("../config/db");
+const { status } = require("../services/liveSync");
 
 const router = express.Router();
 
@@ -14,6 +15,9 @@ router.get("/health", (req, res) => {
     alerts: get("SELECT COUNT(*) AS n FROM alerts").n,
     nlpExtractions: get("SELECT COUNT(*) AS n FROM nlp_extractions").n,
     mlRuns: get("SELECT COUNT(*) AS n FROM ml_runs").n,
+    // Whether the generated command-center files are current. `lastRun.ok === false`
+    // means a rebuild failed and the UI is serving stale rows.
+    sync: status(),
   });
 });
 

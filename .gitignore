@@ -10,3 +10,10 @@ backend/data/app.db
 backend/data/app.db-shm
 backend/data/app.db-wal
 backend/data/model.json
+
+# Scratch files from the atomic write in backend/db/sync.js. They are renamed over the
+# generated data files and only survive a crash mid-write.
+*.tmp
+
+# Written by test/pipeline.test.js.
+backend/test/pipeline.result.txt

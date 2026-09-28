@@ -8,6 +8,11 @@
  * by SQLite and the live ML model.
  *
  * Run with: npm run sync
+ *
+ * The API runs this same `sync()` for you after every write that touches this data — see
+ * services/liveSync.js — so a complaint filed in the citizen portal reaches the command
+ * center without anyone running this by hand. The CLI entry point is kept for the initial
+ * build and as a manual recovery path.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -85,6 +90,30 @@ const titleCase = (value) =>
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 
+/**
+ * Writes a generated file atomically.
+ *
+ * These files are served to the browser (the CSVs over fetch, the module through Vite),
+ * and the rebuild now runs on its own after every complaint rather than on an operator's
+ * command, so a reader can genuinely be mid-fetch while we write. A plain writeFileSync
+ * truncates first, which would let a reader observe a half-written file and fail to parse
+ * it. Writing to a sibling temp file and renaming over the target is atomic on POSIX and
+ * on Windows, so readers only ever see the old or the new content.
+ */
+function writeGenerated(file, contents) {
+  const temp = `${file}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(temp, contents, "utf8");
+    fs.renameSync(temp, file);
+  } catch {
+    // A rename can fail if the target is momentarily locked on Windows. The contents are
+    // already in the temp file, so fall back to a direct write rather than leaving the
+    // command center with no data at all.
+    fs.rmSync(temp, { force: true });
+    fs.writeFileSync(file, contents, "utf8");
+  }
+}
+
 // ---------------------------------------------------------------- CSVs ----
 /**
  * atm_predictions.csv — the columns FraudHeatmap.jsx and CallerLocationAtmRiskZone.jsx
@@ -115,7 +144,7 @@ function writeAtmPredictions() {
     time_of_day: "",
     crime_type: "",
   }));
-  fs.writeFileSync(path.join(PUBLIC, "atm_predictions.csv"), toCsv(csv));
+  writeGenerated(path.join(PUBLIC, "atm_predictions.csv"), toCsv(csv));
   return csv.length;
 }
 
@@ -144,7 +173,7 @@ function writeFraudIncidents() {
     risk_level: r.risk_level || "MEDIUM",
     source_type: SOURCE_TAG,
   }));
-  fs.writeFileSync(path.join(PUBLIC, "fraud_incidents.csv"), toCsv(csv));
+  writeGenerated(path.join(PUBLIC, "fraud_incidents.csv"), toCsv(csv));
   return csv.length;
 }
 
@@ -170,7 +199,7 @@ function writeCellTowers() {
     longitude: round2(Number(c.lng) + 0.02),
     source_type: SOURCE_TAG,
   }));
-  fs.writeFileSync(path.join(PUBLIC, "cell_towers.csv"), toCsv(rows));
+  writeGenerated(path.join(PUBLIC, "cell_towers.csv"), toCsv(rows));
   return rows;
 }
 
@@ -188,7 +217,7 @@ function writeCallerCases(towerRows) {
       source_type: SOURCE_TAG,
     }),
   );
-  fs.writeFileSync(path.join(PUBLIC, "caller_cases.csv"), toCsv(rows));
+  writeGenerated(path.join(PUBLIC, "caller_cases.csv"), toCsv(rows));
   return rows.length;
 }
 
@@ -1093,7 +1122,7 @@ export const mlMetrics = ${js(mlMetrics)};
 `;
 
   fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-  fs.writeFileSync(DATA_FILE, body, "utf8");
+  writeGenerated(DATA_FILE, body);
 
   return {
     cases: cases.length,
