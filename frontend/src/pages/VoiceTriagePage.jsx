@@ -1,6 +1,16 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { analyzeComplaintAudio } from "@/lib/api";
+
+const processingStages = [
+  "Audio Uploaded",
+  "Audio Processing",
+  "BHASHINI Speech-to-Text",
+  "Language Detection",
+  "English Translation",
+  "NLP Structuring",
+  "Complaint Ready",
+];
 
 export default function VoiceTriagePage() {
   const navigate = useNavigate();
@@ -22,6 +32,16 @@ export default function VoiceTriagePage() {
     english_transcript: "",
   });
 
+  const pipelineState = useMemo(() => {
+    if (loading) {
+      return "Processing";
+    }
+    if (formData.english_transcript || formData.complaint_id || formData.initial_mule_account) {
+      return "Completed";
+    }
+    return "Pending";
+  }, [audioFile, loading, formData]);
+
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setAudioFile(e.target.files[0]);
@@ -40,23 +60,37 @@ export default function VoiceTriagePage() {
 
     try {
       const result = await analyzeComplaintAudio(audioFile, sourceLang);
-      if (result.status === "success") {
-        const data = result.structured_complaint || result.complaint || {};
-        setFormData({
-          complaint_id: data.complaint_id || "",
-          incident_date: data.incident_date || "",
-          incident_time: data.incident_time || "",
-          incident_place: data.incident_place || "",
-          stolen_amount_inr: data.stolen_amount_inr || "",
-          transfer_mode: data.transfer_mode || "",
-          initial_mule_account: data.initial_mule_account || "",
-          scam_category: data.scam_category || "",
-          english_transcript: data.english_transcript || "",
-        });
+      const payload = result || {};
+
+      if (payload.status !== "success") {
+        const message =
+          typeof payload === "string"
+            ? payload
+            : payload?.message || "Audio processing failed.";
+        setError(message);
+        return;
       }
+
+      const data = payload.structured_complaint || payload.complaint || {};
+      if (!data || Object.keys(data).length === 0) {
+        setError("Audio analysis did not return a structured complaint result.");
+        return;
+      }
+
+      setFormData({
+        complaint_id: data.complaint_id || "",
+        incident_date: data.incident_date || "",
+        incident_time: data.incident_time || "",
+        incident_place: data.incident_place || "",
+        stolen_amount_inr: data.stolen_amount_inr || "",
+        transfer_mode: data.transfer_mode || "",
+        initial_mule_account: data.initial_mule_account || "",
+        scam_category: data.scam_category || "",
+        english_transcript: data.english_transcript || "",
+      });
     } catch (err) {
-      const stage = err.stage ? `${err.stage}: ` : "";
-      setError(`${stage}${err.message || "Audio processing failed."}`);
+      const stage = err?.stage ? `${err.stage}: ` : "";
+      setError(`${stage}${err?.message || "Audio processing failed."}`);
     } finally {
       setLoading(false);
     }
@@ -68,24 +102,21 @@ export default function VoiceTriagePage() {
   };
 
   const handleProceedToMuleTrace = () => {
-    // Navigate straight to your existing case/trace screen with prefilled mule details
     navigate("/cases", { state: { prefillComplaint: formData } });
   };
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      {/* Header */}
       <div className="border-b pb-4">
-        <h1 className="text-2xl font-bold text-gray-900">Prototype Voice Intake & Speech Triage</h1>
+        <h1 className="text-2xl font-bold text-gray-900">BHASHINI NLP</h1>
         <p className="text-sm text-gray-500">
-          Upload prototype complaint audio for BHASHINI transcription and financial-fraud entity extraction. This is not connected to the real 1930 helpline.
+          Voice-based multilingual cybercrime complaint processing. This page uses the existing BHASHINI and NLP pipeline to convert real complaint audio into structured case details.
         </p>
       </div>
 
-      {/* 1. Upload & Ingestion Section */}
       <div className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
-        <h2 className="text-lg font-semibold text-gray-800">1. Prototype Audio Input</h2>
-        
+        <h2 className="text-lg font-semibold text-gray-800">1. Audio Upload</h2>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Select complaint audio (.mp3, .wav)</label>
@@ -95,6 +126,14 @@ export default function VoiceTriagePage() {
               onChange={handleFileChange}
               className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
+            {audioFile && (
+              <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                <div><span className="font-semibold">Filename:</span> {audioFile.name}</div>
+                <div><span className="font-semibold">Size:</span> {(audioFile.size / 1024 / 1024).toFixed(2)} MB</div>
+                <div><span className="font-semibold">Type:</span> {audioFile.type || "audio"}</div>
+                <div><span className="font-semibold">Upload status:</span> {audioFile ? "Ready" : "Pending"}</div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -119,24 +158,45 @@ export default function VoiceTriagePage() {
           disabled={loading || !audioFile}
           className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-md disabled:bg-gray-400 transition"
         >
-          {loading ? "Processing via BHASHINI & extracting..." : "Analyze Audio"}
+          {loading ? "Processing..." : "Process Audio"}
         </button>
+
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Processing pipeline</p>
+          <div className="flex flex-wrap gap-2">
+            {processingStages.map((stage) => {
+              const isActive = stage === "Audio Uploaded" ? Boolean(audioFile) : loading;
+              const isDone = stage === "Complaint Ready" ? pipelineState === "Completed" : false;
+              const isCurrent = stage === "Audio Processing" && loading;
+              return (
+                <div
+                  key={stage}
+                  className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${
+                    isDone || isCurrent ? "border-emerald-200 bg-emerald-50 text-emerald-700" :
+                    isActive ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-500"
+                  }`}
+                >
+                  {stage}
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-xs text-slate-600">Status: <span className="font-semibold">{pipelineState}</span></p>
+        </div>
 
         {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-md">{error}</div>}
       </div>
 
-      {/* 2. Audio Transcript Preview */}
       {formData.english_transcript && (
         <div className="bg-gray-50 border rounded-xl p-4">
-          <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-1">Translated Transcript</h3>
+          <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-1">Original Transcript</h3>
           <p className="text-gray-800 italic text-sm font-mono">"{formData.english_transcript}"</p>
         </div>
       )}
 
-      {/* 3. Extracted Incident Entities Form */}
       <div className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
         <h2 className="text-lg font-semibold text-gray-800">2. Auto-Extracted Incident Details</h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Complaint Reference</label>

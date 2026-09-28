@@ -21,7 +21,7 @@ const LOGO_URL = "/logo.png";
 
 const nav = [
   { to: "/", label: "Command Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/voice-triage", label: "Prototype Voice Triage", icon: Mic },
+  { to: "/voice-triage", label: "BHASHINI NLP", icon: Mic },
   { to: "/case-management", label: "Case Management", icon: FileText },
   { to: "/atm-intelligence", label: "ATM Intelligence", icon: Banknote },
   { to: "/money-trail", label: "Money Trail", icon: Share2 },
