@@ -251,3 +251,14 @@ def process_call_audio(audio_path: str, source_lang: str = "hi") -> dict:
         try: os.remove(audio_path)
         except Exception: pass
     return complaint_data
+    
+if __name__ == "__main__":
+    import sys
+    import json
+    if len(sys.argv) > 1:
+        audio_file = sys.argv[1]
+        lang = sys.argv[2] if len(sys.argv) > 2 else "hi"
+        result = process_call_audio(audio_file, source_lang=lang)
+        print(json.dumps(result))
+    else:
+        print(json.dumps({"error": "No audio file provided"}))
