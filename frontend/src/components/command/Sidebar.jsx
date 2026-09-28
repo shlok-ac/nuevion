@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LayoutDashboard,
+  Mic,
   FileText,
   Banknote,
   Share2,
@@ -20,6 +21,7 @@ const LOGO_URL = "/logo.png";
 
 const nav = [
   { to: "/", label: "Command Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/voice-triage", label: "1930 Voice Triage", icon: Mic },
   { to: "/case-management", label: "Case Management", icon: FileText },
   { to: "/atm-intelligence", label: "ATM Intelligence", icon: Banknote },
   { to: "/money-trail", label: "Money Trail", icon: Share2 },
@@ -50,8 +52,6 @@ export default function Sidebar() {
         {!isCollapsed && (
           <div className="leading-tight">
             <p className="text-[17px] font-semibold">ArthaVyūh</p>
-
-            
           </div>
         )}
       </div>
@@ -79,10 +79,6 @@ export default function Sidebar() {
       </nav>
       {!isCollapsed && (
         <div className="border-t px-6 pb-5 pt-3">
-          {/* One grid for both lines: the `auto` column is sized by the status dot,
-              and "System Operational" and "Prototype" both start in the `1fr`
-              column, so the label's left edge lands exactly under the status text
-              regardless of how wide the font renders the dot. */}
           <div className="grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-2">
             <span aria-hidden="true" className="text-xs font-medium text-emerald-600">●</span>
             <p className="text-xs font-medium text-emerald-600">System Operational</p>
