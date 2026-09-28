@@ -206,8 +206,26 @@ function seed() {
   const counts = {};
 
   transaction(() => {
-    // Child-first so a rerun never trips a foreign key.
-    for (const table of ["alerts", "mule_hops", "cases", "complaints", "atms", "users"]) {
+    /*
+     * Child-first so a rerun never trips a foreign key.
+     *
+     * `nlp_extractions` and `evidence` have to be here too. Both are child rows —
+     * they reference complaints and cases respectively — and neither is reloaded from
+     * a CSV, so leaving them behind made `DELETE FROM complaints` fail with a FOREIGN
+     * KEY constraint the moment anyone had triaged a helpline call. That made the
+     * seeder unrunnable on any database that had actually been used, which is
+     * exactly when you need to reset it.
+     */
+    for (const table of [
+      "alerts",
+      "mule_hops",
+      "nlp_extractions",
+      "evidence",
+      "cases",
+      "complaints",
+      "atms",
+      "users",
+    ]) {
       run(`DELETE FROM ${table}`);
     }
     run("DELETE FROM sqlite_sequence WHERE name IN ('complaints','cases','alerts')");
