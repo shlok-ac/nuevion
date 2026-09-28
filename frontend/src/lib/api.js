@@ -19,11 +19,12 @@ const readResponse = async (response) => {
 const request = async (path, options = {}) => {
   const token = getAuthToken();
   const { headers: optionHeaders = {}, ...fetchOptions } = options;
+  const isFormData = typeof FormData !== "undefined" && fetchOptions.body instanceof FormData;
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...fetchOptions,
     headers: {
-      "Content-Type": "application/json",
+      ...(!isFormData ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...optionHeaders,
     },
@@ -36,7 +37,9 @@ const request = async (path, options = {}) => {
       typeof data === "string"
         ? data
         : data?.message || "Request failed";
-    throw new Error(errorMessage);
+    const error = new Error(errorMessage);
+    error.stage = typeof data === "object" ? data?.stage : undefined;
+    throw error;
   }
 
   return data;
@@ -67,6 +70,16 @@ export const getCase = (caseId) => request(`/api/cases/${encodeURIComponent(case
 export const getAlerts = () => request("/api/alerts");
 export const getFraudTrace = (complaintId) =>
   request(`/api/fraud/trace/${encodeURIComponent(complaintId)}`);
+
+export const analyzeComplaintAudio = (file, sourceLanguage = "auto") => {
+  const formData = new FormData();
+  formData.append("audio", file);
+  formData.append("source_lang", sourceLanguage);
+  return request("/api/complaints/triage-voice", {
+    method: "POST",
+    body: formData,
+  });
+};
 
 export const getATMs = () => request("/api/atms");
 export const getPredictions = async () => {

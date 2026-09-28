@@ -4,7 +4,11 @@ import sys
 from datetime import datetime, timezone, timedelta
 
 # Import transcription engine from Step 2
-from ml.bhashini_service import transcribe_audio
+from bhashini_service import (
+    BhashiniProcessingError,
+    process_bhashini_audio,
+    transcribe_audio,
+)
 
 # ==================== VOCABULARIES & MAPS ====================
 WORD_TO_DIGIT_STR = {
@@ -291,14 +295,15 @@ def parse_complaint_from_text(transcript: str) -> dict:
 
     return {
         "english_transcript": text,
-        "stolen_amount_inr": amount,
-        "transfer_mode": transfer_mode,
-        "initial_mule_account": account,
-        "incident_date": incident_date,
-        "incident_time": incident_time,
-        "incident_place": incident_place,
-        "victim_lat": latitude,
-        "victim_lon": longitude,
+        "stolen_amount_inr": None if amount == "Not Specified" else amount,
+        "transfer_mode": None if transfer_mode == "Not Specified" else transfer_mode,
+        "initial_mule_account": None if account == "Not Specified" else account,
+        "incident_date": None if incident_date == "Not Specified" else incident_date,
+        "incident_time": None if incident_time == "Not Specified" else incident_time,
+        "incident_place": None if incident_place == "Not Specified" else incident_place,
+        "location": incident_place if incident_place != "Not Specified" else None,
+        "victim_lat": None if latitude == "Not Specified" else latitude,
+        "victim_lon": None if longitude == "Not Specified" else longitude,
         "scam_category": scam_category,
         "processed_at": now.isoformat(),
     }
@@ -311,8 +316,70 @@ def process_voice_call(audio_path: str, source_lang: str = "hi") -> dict:
     return parse_complaint_from_text(transcript)
 
 
+def process_voice_audio(audio_path: str, source_lang: str = "auto") -> dict:
+    speech = process_bhashini_audio(audio_path, source_language=source_lang)
+    structured = parse_complaint_from_text(speech["translated_text"])
+    for field in (
+        "stolen_amount_inr",
+        "transfer_mode",
+        "initial_mule_account",
+        "incident_date",
+        "incident_time",
+        "incident_place",
+        "victim_lat",
+        "victim_lon",
+    ):
+        if structured.get(field) == "Not Specified":
+            structured[field] = None
+
+    fields_with_sources = {
+        "stolen_amount_inr": ("text_rule_parser", "translated_text"),
+        "transfer_mode": ("text_rule_parser", "translated_text"),
+        "initial_mule_account": ("text_rule_parser", "translated_text"),
+        "incident_date": ("text_rule_parser", "translated_text"),
+        "incident_time": ("text_rule_parser", "translated_text"),
+        "incident_place": ("exact_city_match", "translated_text"),
+        "location": ("exact_city_match", "translated_text"),
+        "victim_lat": ("city_centroid_lookup", "location"),
+        "victim_lon": ("city_centroid_lookup", "location"),
+        "scam_category": ("keyword_classifier", "translated_text"),
+    }
+    field_provenance = {
+        field: {
+            "extractor": extractor,
+            "source": source,
+            "verified": False,
+        }
+        for field, (extractor, source) in fields_with_sources.items()
+        if structured.get(field) not in (None, "", "FINANCIAL_FRAUD")
+    }
+    return {
+        **speech,
+        "structured_complaint": structured,
+        "field_provenance": field_provenance,
+        "provenance": {
+            "audio": "citizen_uploaded_prototype_audio",
+            "speech_to_text": "BHASHINI_DHRUVA_ASR",
+            "translation": "BHASHINI_DHRUVA_TRANSLATION",
+            "text_parser": "ml/nlp_service.py:parse_complaint_from_text",
+            "verified": False,
+        },
+        "verified": False,
+    }
+
+
 def main():
     payload = json.load(sys.stdin)
+    audio_path = payload.get("audio_path")
+    if audio_path is not None:
+        if not isinstance(audio_path, str) or not audio_path.strip():
+            raise ValueError("audio_path must be a non-empty file path")
+        source_language = payload.get("source_language", "auto")
+        if not isinstance(source_language, str):
+            raise ValueError("source_language must be a string")
+        json.dump(process_voice_audio(audio_path, source_language), sys.stdout)
+        return
+
     text = payload.get("text")
     if not isinstance(text, str) or not text.strip():
         raise ValueError("text must be a non-empty string")
@@ -324,6 +391,9 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except BhashiniProcessingError as error:
+        print(json.dumps({"stage": error.stage, "message": str(error)}), file=sys.stderr)
+        sys.exit(2)
     except (ValueError, json.JSONDecodeError) as error:
         print(str(error), file=sys.stderr)
         sys.exit(2)

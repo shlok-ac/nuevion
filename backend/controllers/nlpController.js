@@ -1,4 +1,6 @@
-const { analyzeComplaintText } = require("../services/nlpService");
+const {
+    analyzeComplaintText
+} = require("../services/nlpService");
 
 const analyzeText = async (req, res) => {
     const text = req.body?.text;

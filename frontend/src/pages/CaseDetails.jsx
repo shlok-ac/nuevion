@@ -192,6 +192,22 @@ export default function CaseDetails() {
                   <InfoField label="Account identifier extracted" value={nlp.initial_mule_account || "Not extracted"} />
                   <InfoField label="Text location coordinates" value={nlp.victim_lat == null ? "Not extracted" : `${nlp.victim_lat}, ${nlp.victim_lon}`} />
                   <InfoField label="Extraction provenance" value={nlp.provenance || "complaint_text_nlp_extraction"} />
+                  {nlp.transcript && <InfoField label="Original audio transcript" value={nlp.transcript} />}
+                  {nlp.translated_text && <InfoField label="English translation" value={nlp.translated_text} />}
+                  {nlp.translated_text && (
+                    <InfoField
+                      label="Speech language"
+                      value={nlp.detected_language || `Selected: ${nlp.source_language || "Not available"}`}
+                    />
+                  )}
+                  {nlp.field_provenance && (
+                    <InfoField
+                      label="Extracted field provenance"
+                      value={Object.entries(nlp.field_provenance)
+                        .map(([field, source]) => `${field.replaceAll("_", " ")}: ${source.extractor || source.source}`)
+                        .join("; ") || "No fields extracted"}
+                    />
+                  )}
                 </dl>
               </>
             ) : <p className="text-muted-foreground">No NLP result is stored for this complaint.</p>}

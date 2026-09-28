@@ -12,10 +12,11 @@ const readResponse = async (response) => {
 };
 
 const request = async (path, options = {}) => {
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...(!isFormData ? { "Content-Type": "application/json" } : {}),
       ...(options.headers || {}),
     },
   });
@@ -23,7 +24,9 @@ const request = async (path, options = {}) => {
 
   if (!response.ok) {
     const message = typeof data === "string" ? data : data?.message || "Request failed";
-    throw new Error(message);
+    const error = new Error(message);
+    error.stage = typeof data === "object" ? data?.stage : undefined;
+    throw error;
   }
   return data;
 };
@@ -33,6 +36,16 @@ export const createComplaint = (complaint) =>
     method: "POST",
     body: JSON.stringify(complaint),
   });
+
+export const analyzeComplaintAudio = (file, sourceLanguage = "auto") => {
+  const formData = new FormData();
+  formData.append("audio", file);
+  formData.append("source_lang", sourceLanguage);
+  return request("/api/complaints/triage-voice", {
+    method: "POST",
+    body: formData,
+  });
+};
 
 export const getComplaintStatus = (complaintNumber, phoneNumber) =>
   request(

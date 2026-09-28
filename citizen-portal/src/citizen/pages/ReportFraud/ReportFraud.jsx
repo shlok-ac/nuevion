@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
-import { createComplaint } from "../../../lib/api";
+import { analyzeComplaintAudio, createComplaint } from "../../../lib/api";
 import "./ReportFraud.css";
 
 const steps = [
@@ -18,6 +18,11 @@ export default function ReportFraud() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [audioFile, setAudioFile] = useState(null);
+  const [audioLanguage, setAudioLanguage] = useState("hi");
+  const [audioAnalysis, setAudioAnalysis] = useState(null);
+  const [isAnalyzingAudio, setIsAnalyzingAudio] = useState(false);
+  const [audioError, setAudioError] = useState("");
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -40,6 +45,93 @@ export default function ReportFraud() {
       ...previous,
       [field]: value,
     }));
+  };
+
+  const selectAudioFile = (event) => {
+    const file = event.target.files?.[0] || null;
+    setAudioAnalysis(null);
+    setAudioError("");
+    if (!file) {
+      setAudioFile(null);
+      return;
+    }
+    const supportedAudio = file.type.startsWith("audio/") ||
+      /\.(wav|mp3|m4a|mp4|ogg|webm|flac)$/i.test(file.name);
+    if (!supportedAudio) {
+      setAudioFile(null);
+      setAudioError("Choose a supported audio file.");
+      return;
+    }
+    if (file.size === 0 || file.size > 20 * 1024 * 1024) {
+      setAudioFile(null);
+      setAudioError("Audio must be non-empty and 20 MB or smaller.");
+      return;
+    }
+    setAudioFile(file);
+  };
+
+  const analyzeAudio = async () => {
+    if (!audioFile) {
+      setAudioError("Choose a complaint audio file first.");
+      return;
+    }
+    setIsAnalyzingAudio(true);
+    setAudioError("");
+    setAudioAnalysis(null);
+    try {
+      const result = await analyzeComplaintAudio(audioFile, audioLanguage);
+      if (
+        typeof result?.transcript !== "string" ||
+        !result.transcript.trim() ||
+        typeof result?.translated_text !== "string" ||
+        !result.translated_text.trim() ||
+        !result.analysis_token
+      ) {
+        throw new Error("Audio analysis returned an incomplete result.");
+      }
+
+      const structured = result.structured_complaint || {};
+      const amount = structured.stolen_amount_inr;
+      const transactionType = structured.transfer_mode;
+      const location = structured.location;
+      const incidentDate = structured.incident_date;
+      const incidentTime = structured.incident_time;
+      const parsedTime = typeof incidentTime === "string"
+        ? incidentTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+        : null;
+      let formTime = null;
+      if (parsedTime) {
+        let hour = Number(parsedTime[1]) % 12;
+        if (parsedTime[3].toUpperCase() === "PM") hour += 12;
+        formTime = `${String(hour).padStart(2, "0")}:${parsedTime[2]}`;
+      } else if (typeof incidentTime === "string" && /^\d{2}:\d{2}$/.test(incidentTime)) {
+        formTime = incidentTime;
+      }
+
+      setFormData((previous) => ({
+        ...previous,
+        description: result.transcript,
+        fraudAmount: typeof amount === "number" ? String(amount) : previous.fraudAmount,
+        transactionType: typeof transactionType === "string" &&
+          transactionType !== "Not Specified"
+          ? transactionType
+          : previous.transactionType,
+        location: typeof location === "string" && location
+          ? location
+          : previous.location,
+        incidentDate: typeof incidentDate === "string" &&
+          /^\d{4}-\d{2}-\d{2}$/.test(incidentDate)
+          ? incidentDate
+          : previous.incidentDate,
+        incidentTime: formTime || previous.incidentTime,
+      }));
+      setAudioAnalysis(result);
+    } catch (error) {
+      const stage = error.stage ? `${error.stage}: ` : "";
+      setAudioError(`${stage}${error.message || "Audio analysis failed."}`);
+    } finally {
+      setIsAnalyzingAudio(false);
+    }
   };
 
   const nextStep = () => {
@@ -775,6 +867,12 @@ const handleSubmit = async (event) => {
       ...formData,
       evidence: evidenceMetadata,
       fraudAmount: String(formData.fraudAmount || "").trim(),
+      ...(audioAnalysis?.transcript === formData.description
+        ? {
+            audio_analysis_token: audioAnalysis.analysis_token,
+            source: "1930_audio_prototype",
+          }
+        : {}),
     });
     const complaintNumber = result?.complaint?.complaint_number;
     if (!complaintNumber) {
@@ -962,6 +1060,79 @@ const handleSubmit = async (event) => {
               </div>
 
               <div className="form-grid">
+                <div className="form-field full-width">
+                  <label htmlFor="complaint-audio">Prototype 1930 audio complaint</label>
+                  <p className="report-security-note">
+                    This is a local audio simulation only. It is not connected to the real 1930 helpline.
+                    Extracted details are unverified; review them and complete any missing required fields.
+                  </p>
+                  <input
+                    id="complaint-audio"
+                    type="file"
+                    accept="audio/*,.wav,.mp3,.m4a,.mp4,.ogg,.webm,.flac"
+                    onChange={selectAudioFile}
+                    disabled={isAnalyzingAudio || isSubmitting}
+                  />
+                  <div className="form-field">
+                    <label htmlFor="audio-language">Spoken language</label>
+                    <select
+                      id="audio-language"
+                      value={audioLanguage}
+                      onChange={(event) => {
+                        setAudioLanguage(event.target.value);
+                        setAudioAnalysis(null);
+                      }}
+                      disabled={isAnalyzingAudio || isSubmitting}
+                    >
+                      <option value="auto">Detect automatically</option>
+                      <option value="hi">Hindi</option>
+                      <option value="mr">Marathi</option>
+                      <option value="bn">Bengali</option>
+                      <option value="ta">Tamil</option>
+                      <option value="te">Telugu</option>
+                      <option value="gu">Gujarati</option>
+                      <option value="pa">Punjabi</option>
+                      <option value="en">English</option>
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    className="next-button"
+                    onClick={analyzeAudio}
+                    disabled={!audioFile || isAnalyzingAudio || isSubmitting}
+                  >
+                    {isAnalyzingAudio ? "Processing audio…" : "Transcribe and extract details"}
+                  </button>
+                  {audioFile && <small>Selected: {audioFile.name}</small>}
+                  {audioError && <small className="field-error" role="alert">{audioError}</small>}
+                  {audioAnalysis && (
+                    <div className="important-notice" role="status">
+                      <strong>Audio analysis complete — extracted details are not verified.</strong>
+                      <p>
+                        {audioAnalysis.detected_language
+                          ? `Detected language: ${audioAnalysis.detected_language}`
+                          : `Selected language: ${audioAnalysis.source_language}`}
+                      </p>
+                      <p><strong>Transcript:</strong> {audioAnalysis.transcript}</p>
+                      <p><strong>English translation:</strong> {audioAnalysis.translated_text}</p>
+                      <p><strong>Parser:</strong> {audioAnalysis.provenance?.text_parser || "Not available"}</p>
+                      <p>
+                        <strong>Extracted fields:</strong>{" "}
+                        {Object.entries(audioAnalysis.structured_complaint || {})
+                          .filter(([field, value]) => (
+                            field !== "english_transcript" &&
+                            field !== "processed_at" &&
+                            value !== null &&
+                            value !== undefined &&
+                            value !== "" &&
+                            value !== "Not Specified"
+                          ))
+                          .map(([field, value]) => `${field.replaceAll("_", " ")}: ${value}`)
+                          .join(" · ") || "No structured fields extracted"}
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 <div className="form-field full-width">
                   <label>
@@ -972,12 +1143,12 @@ const handleSubmit = async (event) => {
                   <textarea
                     rows="7"
                     value={formData.description}
-                    onChange={(e) =>
-                      updateField(
-                        "description",
-                        e.target.value
-                      )
-                    }
+                    onChange={(e) => {
+                      updateField("description", e.target.value);
+                      if (audioAnalysis && e.target.value !== audioAnalysis.transcript) {
+                        setAudioAnalysis(null);
+                      }
+                    }}
                     placeholder="Describe the incident in detail..."
                   />
 

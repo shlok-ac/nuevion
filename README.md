@@ -17,6 +17,8 @@ Citizen portal / command dashboard
 
 The citizen portal submits the complaint text and fields already collected in its form. The API validates and stores the complaint and initial case in one PostgreSQL transaction, calls the existing notebook-derived text parser, and then runs the ATM-risk classifier against catalog ATMs whose city exactly matches the structured complaint location. NLP, inference, and Neo4j failures are reported without discarding a complaint already committed to PostgreSQL.
 
+The citizen portal's optional prototype-audio flow uses the existing `POST /api/complaints/triage-voice` route. It sends a multipart audio upload to the backend, where `ml/bhashini_service.py` performs BHASHINI speech recognition/translation and `ml/nlp_service.py` parses the translated text. The response includes the source transcript, English translation, structured fields, unverified provenance, and a short-lived signed analysis token. Submitting the complaint still uses the existing `POST /api/complaints` endpoint and existing PostgreSQL complaint/case tables; the original transcript is retained as the complaint description and NLP details are stored in `complaints.nlp_result`. This is a local audio prototype, not a connection to the real 1930 helpline.
+
 `ml/ArthVyuh.ipynb` trains a `RandomForestClassifier(n_estimators=100, random_state=42)` for ATM `risk_level` from the five existing ATM features and uses `predict_proba`. The callable implementation in `ml/atm_risk_service.py` uses those same features, labels, model settings, 80/20 stratified split, random seed, and `data/atms.csv` training rows. For a new complaint it classifies only same-city ATM catalog candidates; this is **ATM risk classification, not a complaint-to-ATM match or cash-out probability**. The returned class probability is explicitly marked as in-sample, held-out, or unseen-catalog and is not calibrated. Existing catalog candidates may have appeared in the notebook's training partition.
 
 The notebook's `atm_cashout_mapping new.csv` and `mule_hops.csv` are generated prototype data: the notebook rotates top-ranked ATMs within complaint city and fabricates hop account identifiers/amounts/timings. They are not supervised ground truth and are not used by the live candidate/risk flow. Wherever shown, they are labeled **"Imported/generated reference data — not verified cash-out events."** No complaint-triggered cash-out alerts are created.
@@ -29,6 +31,7 @@ The complaint API persists NLP output with extraction provenance and `verified: 
 - Python 3.9+ (text parsing uses the standard library; ATM risk inference requires scikit-learn)
 - PostgreSQL with a database named `cyber_fraud_db`
 - Neo4j with a database named `cyber-fraud-db` (or configure `NEO4J_DATABASE`)
+- FFmpeg for BHASHINI audio normalization; OpenAI Whisper is required only when automatic spoken-language detection is selected
 
 Existing offline prediction/map source files are under `data/`. The command frontend also includes reference heatmap files under `frontend/public/`.
 
@@ -42,6 +45,8 @@ Frontend API origins can be overridden with:
 - `citizen-portal/.env`: `VITE_API_URL=http://localhost:5000`
 
 The sample frontend `.env.example` files are safe templates; never add credentials there.
+
+For prototype audio analysis, set `BHASHINI_USER_ID` and `BHASHINI_API_KEY` in the backend `.env`; set `BHASHINI_INFERENCE_KEY` only if the BHASHINI configuration response does not provide one. These credentials are used only by the backend. Select a spoken language in the citizen portal to avoid the optional Whisper-based automatic language detector.
 
 For the backend, copy `backend/.env.example` to `backend/.env` and provide a long random `JWT_SECRET`, existing PostgreSQL/Neo4j connection settings, and an initial analyst name/email/password (at least 12 characters). Keep `.env` local and do not paste credentials into source files or notebooks. The example does not contain real credentials.
 
@@ -106,6 +111,7 @@ The command frontend uses `http://localhost:5173`; the citizen portal uses `http
 | GET | `/api/health` | PostgreSQL/Neo4j readiness (degraded state is explicit) | Public |
 | POST | `/api/auth/login` | Analyst login; returns JWT | Public |
 | POST | `/api/complaints` | Validate, persist, analyze text, infer ATM risk for exact same-city candidates, and best-effort graph sync | Public citizen intake |
+| POST | `/api/complaints/triage-voice` | Analyze a multipart audio upload with BHASHINI and the existing NLP parser; does not create a complaint | Public citizen intake |
 | GET | `/api/complaints/:complaintNumber/status?phone=...` | Match complaint number to registered phone | Public |
 | GET | `/api/complaints` | List complaints | Analyst JWT |
 | GET | `/api/cases` | List cases | Analyst JWT |
@@ -142,7 +148,7 @@ python -m unittest test_nlp_service.py
 - The Analytics page still contains bundled sample KPIs/charts; it labels them as illustrative and not live database metrics or model evaluation.
 - If ATM data is empty, apply the migration and run `npm run import:data`; the UI may use clearly labeled bundled prediction files only when the prediction API is unavailable.
 - Bhashini API credentials in old notebooks were removed from executable cells; configure credentials through environment variables before using that notebook pipeline. No credentials are required for the text endpoint.
-- No complaint-to-ATM/cash-out prediction model, verified cash-out feed, online speech transcription, binary evidence upload, calibrated ATM-risk probability, or live cell-tower feed is deployed. The current historical mapping and hop outputs are generated prototype data and are not used as supervised labels.
+- No complaint-to-ATM/cash-out prediction model, verified cash-out feed, binary evidence upload, calibrated ATM-risk probability, or live cell-tower feed is deployed. BHASHINI audio transcription requires server-side credentials and FFmpeg; automatic language detection additionally requires Whisper. No direct 1930 helpline integration exists. The current historical mapping and hop outputs are generated prototype data and are not used as supervised labels.
 
 ## Phase 2B verification
 

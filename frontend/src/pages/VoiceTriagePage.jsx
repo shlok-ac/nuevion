@@ -1,8 +1,6 @@
 import React, { useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+import { analyzeComplaintAudio } from "@/lib/api";
 
 export default function VoiceTriagePage() {
   const navigate = useNavigate();
@@ -18,9 +16,9 @@ export default function VoiceTriagePage() {
     incident_time: "",
     incident_place: "",
     stolen_amount_inr: "",
-    transfer_mode: "UPI",
+    transfer_mode: "",
     initial_mule_account: "",
-    scam_category: "FINANCIAL_FRAUD",
+    scam_category: "",
     english_transcript: "",
   });
 
@@ -40,34 +38,25 @@ export default function VoiceTriagePage() {
     setLoading(true);
     setError(null);
 
-    const payload = new FormData();
-    payload.append("audio", audioFile);
-    if (sourceLang !== "auto") {
-      payload.append("source_lang", sourceLang);
-    }
-
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/complaints/triage-voice`, payload, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      if (response.data.status === "success") {
-        const data = response.data.complaint;
+      const result = await analyzeComplaintAudio(audioFile, sourceLang);
+      if (result.status === "success") {
+        const data = result.structured_complaint || result.complaint || {};
         setFormData({
           complaint_id: data.complaint_id || "",
           incident_date: data.incident_date || "",
           incident_time: data.incident_time || "",
           incident_place: data.incident_place || "",
           stolen_amount_inr: data.stolen_amount_inr || "",
-          transfer_mode: data.transfer_mode || "UPI",
+          transfer_mode: data.transfer_mode || "",
           initial_mule_account: data.initial_mule_account || "",
-          scam_category: data.scam_category || "FINANCIAL_FRAUD",
+          scam_category: data.scam_category || "",
           english_transcript: data.english_transcript || "",
         });
       }
     } catch (err) {
-      console.error("Triage error:", err);
-      setError(err.response?.data?.message || err.message || "Audio processing failed.");
+      const stage = err.stage ? `${err.stage}: ` : "";
+      setError(`${stage}${err.message || "Audio processing failed."}`);
     } finally {
       setLoading(false);
     }
@@ -87,19 +76,19 @@ export default function VoiceTriagePage() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="border-b pb-4">
-        <h1 className="text-2xl font-bold text-gray-900">1930 Voice Intake & Speech Triage</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Prototype Voice Intake & Speech Triage</h1>
         <p className="text-sm text-gray-500">
-          Upload vernacular distress call recordings to auto-transcribe via Bhashini and extract financial fraud entities.
+          Upload prototype complaint audio for BHASHINI transcription and financial-fraud entity extraction. This is not connected to the real 1930 helpline.
         </p>
       </div>
 
       {/* 1. Upload & Ingestion Section */}
       <div className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
-        <h2 className="text-lg font-semibold text-gray-800">1. Audio Recording Input</h2>
+        <h2 className="text-lg font-semibold text-gray-800">1. Prototype Audio Input</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Select Audio File (.mp3, .wav)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Select complaint audio (.mp3, .wav)</label>
             <input
               type="file"
               accept="audio/*"
@@ -115,7 +104,7 @@ export default function VoiceTriagePage() {
               onChange={(e) => setSourceLang(e.target.value)}
               className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="auto">Auto-Detect via Acoustic Engine</option>
+              <option value="auto">Detect spoken language automatically</option>
               <option value="hi">Hindi (hi)</option>
               <option value="pa">Punjabi (pa)</option>
               <option value="mr">Marathi (mr)</option>
@@ -130,7 +119,7 @@ export default function VoiceTriagePage() {
           disabled={loading || !audioFile}
           className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-md disabled:bg-gray-400 transition"
         >
-          {loading ? "Processing via Bhashini & Extracting..." : "Process Call Audio"}
+          {loading ? "Processing via BHASHINI & extracting..." : "Analyze Audio"}
         </button>
 
         {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-md">{error}</div>}

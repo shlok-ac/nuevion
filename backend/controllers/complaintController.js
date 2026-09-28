@@ -3,6 +3,7 @@ const { randomBytes } = require("node:crypto");
 const { analyzeComplaintText } = require("../services/nlpService");
 const { predictAtmRisk } = require("../services/atmRiskService");
 const { syncComplaintGraph } = require("../services/neo4jService");
+const jwt = require("jsonwebtoken");
 
 const nullableTrimmed = (value) => {
     if (typeof value !== "string") return null;
@@ -114,6 +115,8 @@ const createComplaint = async (req, res) => {
     const location = nullableTrimmed(body.location);
     const transactionId = nullableTrimmed(body.transactionId || body.transaction_id);
     const fraudAmount = Number(body.fraudAmount ?? body.fraud_amount);
+    const audioAnalysisToken = nullableTrimmed(body.audio_analysis_token);
+    let audioAnalysis = null;
 
     if (!complainantName || complainantName.length < 3) {
         return res.status(400).json({ message: "A valid complainant name is required" });
@@ -142,6 +145,33 @@ const createComplaint = async (req, res) => {
     if (!incidentDate || !/^\d{4}-\d{2}-\d{2}$/.test(incidentDate) || Number.isNaN(Date.parse(incidentDate))) {
         return res.status(400).json({ message: "A valid incident date is required" });
     }
+    if (audioAnalysisToken) {
+        if (!process.env.JWT_SECRET) {
+            return res.status(503).json({ message: "Audio analysis validation is not configured" });
+        }
+        try {
+            const decoded = jwt.verify(audioAnalysisToken, process.env.JWT_SECRET, {
+                issuer: "nuevion-backend",
+                audience: "bhashini-audio-complaint"
+            });
+            if (
+                decoded.purpose !== "bhashini_audio_complaint" ||
+                decoded.transcript !== description ||
+                typeof decoded.translated_text !== "string" ||
+                !decoded.structured_complaint ||
+                typeof decoded.structured_complaint !== "object"
+            ) {
+                return res.status(400).json({
+                    message: "Audio analysis does not match the complaint description; process the audio again."
+                });
+            }
+            audioAnalysis = decoded;
+        } catch (error) {
+            return res.status(400).json({
+                message: "Audio analysis is invalid or expired; process the audio again."
+            });
+        }
+    }
 
     const evidence = Array.isArray(body.evidence)
         ? body.evidence
@@ -169,8 +199,8 @@ const createComplaint = async (req, res) => {
                 fraud_date, fraud_time, location, description, source,
                 created_at, evidence_metadata, complainant_email
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'citizen_portal',
-                NOW(), $13::jsonb, $14
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                NOW(), $14::jsonb, $15
             ) RETURNING *`,
             [
                 complaintNumber,
@@ -185,6 +215,7 @@ const createComplaint = async (req, res) => {
                 incidentTime,
                 location,
                 description,
+                audioAnalysis ? "1930_audio_prototype" : "citizen_portal",
                 JSON.stringify(evidence),
                 email
             ]
@@ -216,10 +247,22 @@ const createComplaint = async (req, res) => {
 
     let nlp = { status: "unavailable" };
     try {
-        const analysis = await analyzeComplaintText(description);
+        const analysis = audioAnalysis
+            ? audioAnalysis.structured_complaint
+            : await analyzeComplaintText(description);
         const storedAnalysis = {
             ...analysis,
-            provenance: "complaint_text_nlp_extraction",
+            ...(audioAnalysis ? {
+                transcript: audioAnalysis.transcript,
+                translated_text: audioAnalysis.translated_text,
+                detected_language: audioAnalysis.detected_language,
+                source_language: audioAnalysis.source_language,
+                field_provenance: audioAnalysis.field_provenance,
+                audio_provenance: audioAnalysis.provenance
+            } : {}),
+            provenance: audioAnalysis
+                ? "bhashini_audio_nlp_extraction"
+                : "complaint_text_nlp_extraction",
             verified: false
         };
         const update = await pool.query(
