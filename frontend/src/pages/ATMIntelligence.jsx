@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
@@ -38,37 +38,63 @@ import PageHeader from "@/components/command/PageHeader";
 import CallerLocationAtmRiskZone from "@/components/command/CallerLocationAtmRiskZone";
 import { getActionStatusLabel } from "@/lib/caseActionStore";
 import { useCaseActions } from "@/hooks/useCaseActions";
-import { cases, formatINR, muleChains, suspects } from "@/lib/investigationData";
+import { formatINR } from "@/lib/investigationData";
+import { getATMs, getDashboardData, getPredictions } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-function flattenChain(node, acc = []) {
-  acc.push(node);
-  if (node.children) {
-    node.children.forEach((child) => flattenChain(child, acc));
-  }
-  return acc;
-}
-
 /**
- * ATMs opened from the map come from atm_predictions.csv, whose rows are
- * snake_case and carry no linked-case count, fraud amount or predicted window.
- * This adapts one row to the shape the watchlist and the details card already
- * use, leaving the fields the dataset genuinely does not contain as null rather
- * than inventing values for them.
+ * Adapt an ATM API record to the existing details-panel shape without making
+ * catalog risk fields look like live inference or filling absent values.
  */
-const atmFromPredictionRow = (row) => ({
-  atm: row.atm_id,
-  location: [row.bank_name, row.city].filter(Boolean).join(", "),
-  riskScore: Number.isFinite(Number(row.risk_score)) ? Number(row.risk_score) : 0,
-  status: String(row.risk_level || "").toLowerCase().replace(/^./, (char) => char.toUpperCase()),
-  rank: null,
-  linkedCases: null,
-  fraudAmount: null,
-  predictedWindow: null,
-  lastActivity: [row.date, row.time].filter(Boolean).join(" "),
-  predictedRiskLevel: row.predicted_risk_level,
-  predictionConfidence: Number(row.prediction_confidence) || 0,
-});
+const numberOrNull = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const atmFromApiRow = (row) => {
+  const liveInference = row.prediction_details?.live_atm_risk_inference || row.atm_risk_inference || null;
+  const features = liveInference?.features || {
+    highway_distance: row.highway_distance,
+    lighting_score: row.lighting_score,
+    cctv_coverage: row.cctv_coverage,
+    historical_fraud_count: row.historical_fraud_count,
+    withdrawal_limit: row.withdrawal_limit,
+  };
+  const availableFeatures = Object.fromEntries(
+    Object.entries(features).filter(([, value]) => value !== null && value !== undefined && value !== "")
+  );
+  return {
+    atm: row.atm_id || "Not available",
+    bank: row.bank_name || "Not available",
+    city: row.city || "Not available",
+    location: [row.bank_name, row.city].filter(Boolean).join(", ") || "Not available",
+    latitude: numberOrNull(row.latitude),
+    longitude: numberOrNull(row.longitude),
+    highwayDistance: numberOrNull(row.highway_distance),
+    lightingScore: numberOrNull(row.lighting_score),
+    cctvCoverage: numberOrNull(row.cctv_coverage),
+    historicalFraudCount: numberOrNull(row.historical_fraud_count),
+    withdrawalLimit: numberOrNull(row.withdrawal_limit),
+    riskScore: numberOrNull(row.risk_score),
+    status: String(liveInference?.risk_level || row.predicted_risk_level || row.risk_level || "Not available").toUpperCase(),
+    riskLevelSource: liveInference
+      ? "Live ATM risk inference"
+      : row.atm_risk_provenance || row.data_notice || "ATM catalog/reference value",
+    predictionConfidence: numberOrNull(liveInference?.prediction_confidence),
+    confidenceType: liveInference?.confidence_type || "Not available",
+    modelVersion: liveInference?.model_version || "Not available",
+    modelFeatures: Object.keys(availableFeatures).length ? availableFeatures : null,
+    predictionUpdatedAt: row.prediction_updated_at || null,
+    provenance: liveInference
+      ? "live_atm_risk_inference"
+      : row.atm_risk_provenance || "atm_catalog_or_imported_reference",
+    verified: false,
+    linkedCases: null,
+    fraudAmount: null,
+    predictedWindow: null,
+  };
+};
 
 /**
  * "Why this ATM was predicted" is worded from whichever fields the ATM has: a
@@ -79,29 +105,17 @@ const atmFromPredictionRow = (row) => ({
 const buildRiskFactors = (atm) => {
   const factors = [];
 
-  if (Number.isFinite(atm.linkedCases)) {
-    factors.push(
-      `${atm.linkedCases} linked fraud case${atm.linkedCases === 1 ? "" : "s"} in the surrounding corridor`
-    );
-  } else if (atm.predictedRiskLevel) {
-    factors.push(`Model predicted ${atm.predictedRiskLevel} risk at ${atm.predictionConfidence}% confidence`);
+  if (atm.provenance === "live_atm_risk_inference") {
+    factors.push(`Live ATM risk classification: ${atm.status}`);
   }
 
-  if (atm.fraudAmount) {
-    factors.push(`${atm.fraudAmount} associated fraud value identified in historical activity`);
+  if (atm.modelFeatures) {
+    Object.entries(atm.modelFeatures).forEach(([feature, value]) => {
+      factors.push(`${feature.replaceAll("_", " ")}: ${value}`);
+    });
   }
 
-  if (atm.predictedWindow) {
-    factors.push(
-      `Predicted cash-out window overlaps with the region's highest-risk period (${atm.predictedWindow})`
-    );
-  }
-
-  factors.push(
-    atm.riskScore >= 80
-      ? "Historical mule-account activity shows a strong location and timing match"
-      : "Historical mule-account activity shows a moderate location and timing match"
-  );
+  if (!factors.length) factors.push("No live ATM risk inference is available for this record.");
 
   return factors;
 };
@@ -227,40 +241,6 @@ const regionScores = [
   },
 ];
 
-const atmRankings = {
-  "maharashtra-pune": [
-    { rank: 1, atm: "ATM-001", location: "FC Road", riskScore: 94, linkedCases: 12, fraudAmount: "₹4.8L", predictedWindow: "20:00–22:00", status: "Critical" },
-    { rank: 2, atm: "ATM-014", location: "Andheri East", riskScore: 89, linkedCases: 10, fraudAmount: "₹3.6L", predictedWindow: "21:00–23:00", status: "High" },
-    { rank: 3, atm: "ATM-021", location: "Camp Area", riskScore: 86, linkedCases: 8, fraudAmount: "₹2.9L", predictedWindow: "22:00–00:00", status: "High" },
-    { rank: 4, atm: "ATM-037", location: "Hinjewadi Phase 1", riskScore: 81, linkedCases: 6, fraudAmount: "₹2.1L", predictedWindow: "19:00–21:00", status: "Elevated" },
-    { rank: 5, atm: "ATM-042", location: "Kothrud Depot", riskScore: 78, linkedCases: 5, fraudAmount: "₹1.8L", predictedWindow: "20:00–22:00", status: "Elevated" },
-    { rank: 6, atm: "ATM-056", location: "Viman Nagar", riskScore: 76, linkedCases: 5, fraudAmount: "₹1.6L", predictedWindow: "21:00–23:00", status: "Elevated" },
-    { rank: 7, atm: "ATM-063", location: "Kharadi Bypass", riskScore: 73, linkedCases: 4, fraudAmount: "₹1.4L", predictedWindow: "22:00–00:00", status: "Moderate" },
-    { rank: 8, atm: "ATM-071", location: "Shivajinagar", riskScore: 70, linkedCases: 4, fraudAmount: "₹1.2L", predictedWindow: "19:00–21:00", status: "Moderate" },
-    { rank: 9, atm: "ATM-084", location: "Wakad Bridge", riskScore: 68, linkedCases: 3, fraudAmount: "₹1.1L", predictedWindow: "20:00–22:00", status: "Moderate" },
-    { rank: 10, atm: "ATM-096", location: "Baner Road", riskScore: 65, linkedCases: 3, fraudAmount: "₹0.9L", predictedWindow: "21:00–23:00", status: "Moderate" },
-    { rank: 11, atm: "ATM-103", location: "Pimpri Market", riskScore: 62, linkedCases: 2, fraudAmount: "₹0.8L", predictedWindow: "22:00–00:00", status: "Watch" },
-    { rank: 12, atm: "ATM-118", location: "Swargate Terminal", riskScore: 59, linkedCases: 2, fraudAmount: "₹0.6L", predictedWindow: "19:00–21:00", status: "Watch" },
-    { rank: 13, atm: "ATM-124", location: "Hadapsar Gadital", riskScore: 56, linkedCases: 1, fraudAmount: "₹0.5L", predictedWindow: "20:00–22:00", status: "Watch" },
-  ],
-  "delhi-ncr": [
-    { rank: 1, atm: "ATM-108", location: "Noida Sector 18", riskScore: 93, linkedCases: 11, fraudAmount: "₹4.2L", predictedWindow: "21:00–23:00", status: "Critical" },
-    { rank: 2, atm: "ATM-116", location: "Lajpat Nagar", riskScore: 88, linkedCases: 9, fraudAmount: "₹3.1L", predictedWindow: "20:00–22:00", status: "High" },
-    { rank: 3, atm: "ATM-127", location: "Dwarka Sector 10", riskScore: 83, linkedCases: 7, fraudAmount: "₹2.4L", predictedWindow: "22:00–00:00", status: "High" },
-  ],
-  "mumbai-west": [
-    { rank: 1, atm: "ATM-203", location: "Andheri West", riskScore: 91, linkedCases: 10, fraudAmount: "₹3.6L", predictedWindow: "21:00–23:00", status: "Critical" },
-    { rank: 2, atm: "ATM-214", location: "Bandra East", riskScore: 85, linkedCases: 8, fraudAmount: "₹2.8L", predictedWindow: "20:00–22:00", status: "High" },
-    { rank: 3, atm: "ATM-229", location: "Goregaon Link Road", riskScore: 79, linkedCases: 6, fraudAmount: "₹2.0L", predictedWindow: "22:00–00:00", status: "Elevated" },
-  ],
-};
-
-const defaultAtmRankings = [
-  { rank: 1, atm: "ATM-301", location: "Central Business District", riskScore: 78, linkedCases: 6, fraudAmount: "₹1.8L", predictedWindow: "20:00–22:00", status: "Elevated" },
-  { rank: 2, atm: "ATM-314", location: "Market Road", riskScore: 72, linkedCases: 4, fraudAmount: "₹1.2L", predictedWindow: "21:00–23:00", status: "Moderate" },
-  { rank: 3, atm: "ATM-326", location: "Railway Station Road", riskScore: 68, linkedCases: 3, fraudAmount: "₹0.9L", predictedWindow: "22:00–00:00", status: "Moderate" },
-];
-
 // Each entry carries the workflow metadata used by the confirmation panel, the
 // persisted record and the activity log, so the card, the dialog and the
 // Case Details views always describe the same action.
@@ -335,38 +315,146 @@ export default function ATMIntelligence() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const requestedCaseId = searchParams.get("case");
-  const initialCaseId = cases.some((item) => item.id === requestedCaseId) ? requestedCaseId : cases[0].id;
-  const [caseId, setCaseId] = useState(initialCaseId);
+  const [caseId, setCaseId] = useState(requestedCaseId || "");
+  const [liveCases, setLiveCases] = useState([]);
+  const [caseLoading, setCaseLoading] = useState(true);
+  const [caseError, setCaseError] = useState("");
   const [selectedRegionId, setSelectedRegionId] = useState(regionScores[0].id);
   const [dialogRegion, setDialogRegion] = useState(null);
   const [selectedAtm, setSelectedAtm] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
   const [actionNotice, setActionNotice] = useState(null);
+  const [atmRecords, setAtmRecords] = useState([]);
+  const [atmLoading, setAtmLoading] = useState(true);
+  const [atmError, setAtmError] = useState("");
+  const [predictionError, setPredictionError] = useState("");
   // ATMs the map found inside the selected case's caller-location buffer. The map
   // owns the geography, so it reports them upward rather than the page recomputing it.
-  const [callerCircleAtms, setCallerCircleAtms] = useState([]);
 
-  const activeCase = useMemo(() => cases.find((item) => item.id === caseId) ?? cases[0], [caseId]);
+  useEffect(() => {
+    let active = true;
+    const loadCases = async () => {
+      setCaseLoading(true);
+      setCaseError("");
+      try {
+        const dashboard = await getDashboardData();
+        if (!Array.isArray(dashboard.cases)) {
+          throw new Error("Dashboard response did not include case records.");
+        }
+        const rows = dashboard.cases
+          .filter((row) => row.id != null)
+          .map((row) => ({
+            ...row,
+            id: String(row.id),
+            title: row.description || row.case_number || row.complaint_number || "Untitled case",
+            fraudType: row.fraudType || row.transaction_type || null,
+            amount: row.amount ?? row.fraud_amount ?? null,
+            bank: row.bank_name || null,
+            account: row.account || row.account_number || null,
+            filedDate: row.filedDate || row.created_at || null,
+            officer: row.assigned_to || null,
+          }));
+        if (active) {
+          setLiveCases(rows);
+          setCaseId((current) => (
+            rows.some((row) => row.id === current || row.case_number === current)
+              ? rows.find((row) => row.id === current || row.case_number === current).id
+              : rows[0]?.id || ""
+          ));
+        }
+      } catch (error) {
+        if (active) {
+          setLiveCases([]);
+          setCaseId("");
+          setCaseError(error.message || "Live case data is unavailable.");
+        }
+      } finally {
+        if (active) setCaseLoading(false);
+      }
+    };
 
-  const chain = muleChains[activeCase.muleChainId];
-  const chainNodes = flattenChain(chain);
-  const cashOutNodes = chainNodes.filter((node) => node.role && node.role.includes("cash-out"));
-  const linkedSuspects = suspects.filter((suspect) => suspect.linkedCases.includes(activeCase.id));
+    loadCases();
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const cashOutTotal = cashOutNodes.reduce((sum, node) => sum + Number(node.amount || 0), 0);
-  const maxLayer = Math.max(...chainNodes.map((node) => Number(node.layer || 0)), 0);
+  useEffect(() => {
+    let active = true;
+    const loadAtms = async () => {
+      setAtmLoading(true);
+      setAtmError("");
+      setPredictionError("");
+      try {
+        const catalog = await getATMs();
+        if (!Array.isArray(catalog)) {
+          throw new Error("ATM catalog API returned an unexpected response");
+        }
+
+        let predictionRows = [];
+        try {
+          predictionRows = await getPredictions();
+          if (!Array.isArray(predictionRows)) {
+            throw new Error("ATM prediction API returned an unexpected response");
+          }
+        } catch (error) {
+          if (active) setPredictionError(error.message || "Live ATM risk inference is unavailable.");
+        }
+
+        const predictionsByAtm = new Map(
+          predictionRows
+            .filter((row) => row.atm_id != null)
+            .map((row) => [String(row.atm_id).trim(), row])
+        );
+        const merged = catalog.map((atm) => {
+          const prediction = atm.atm_id == null
+            ? null
+            : predictionsByAtm.get(String(atm.atm_id).trim());
+          return {
+            ...atm,
+            atm_risk_inference:
+              atm.prediction_details?.live_atm_risk_inference ||
+              prediction?.atm_risk_inference ||
+              null,
+            risk_score: atm.risk_score ?? prediction?.risk_score,
+            risk_level: atm.risk_level ?? prediction?.risk_level,
+            predicted_risk_level: atm.predicted_risk_level ?? prediction?.predicted_risk_level,
+            prediction_confidence: atm.prediction_confidence ?? prediction?.prediction_confidence,
+            prediction_details: atm.prediction_details ?? prediction?.prediction_details,
+            prediction_updated_at: atm.prediction_updated_at ?? prediction?.prediction_updated_at,
+            atm_risk_provenance: prediction?.atm_risk_provenance || null,
+            data_notice: prediction?.data_notice || null,
+          };
+        });
+        if (active) setAtmRecords(merged);
+      } catch (error) {
+        if (active) {
+          setAtmRecords([]);
+          setAtmError(error.message || "Live ATM catalog is unavailable.");
+        }
+      } finally {
+        if (active) setAtmLoading(false);
+      }
+    };
+
+    loadAtms();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const liveAtms = useMemo(() => atmRecords.map(atmFromApiRow), [atmRecords]);
+
+  const activeCase = useMemo(
+    () => liveCases.find((item) => item.id === caseId || item.case_number === caseId) || null,
+    [caseId, liveCases]
+  );
   const selectedRegion = regionScores.find((region) => region.id === selectedRegionId) || regionScores[0];
-  const selectedAtms = atmRankings[selectedRegion.id] || defaultAtmRankings;
+  const selectedAtms = liveAtms;
 
   const atmDetails = selectedAtm
     ? {
         ...selectedAtm,
-        // Watchlist rows carry no timestamp of their own and keep the existing
-        // rank-based one; a row opened from the map has a real timestamp from the
-        // prediction file, so it wins.
-        lastActivity:
-          selectedAtm.lastActivity ??
-          (selectedAtm.rank === 1 ? "18:42" : `${18 + (selectedAtm.rank % 2)}:${selectedAtm.rank % 2 ? "18" : "42"}`),
         riskFactors: buildRiskFactors(selectedAtm),
       }
     : null;
@@ -376,7 +464,7 @@ export default function ATMIntelligence() {
 
   // Operational action state is read from the persistent store, scoped to this
   // case + ATM pair, so it survives a refresh and never leaks across cases.
-  const { getRecord, getStatus, initiate } = useCaseActions({ caseId, atmId: targetAtm.atm });
+  const { getRecord, getStatus, initiate } = useCaseActions({ caseId: activeCase?.id || "", atmId: targetAtm.atm });
 
   const openActionDialog = (action) => {
     setActionNotice(null);
@@ -412,10 +500,10 @@ export default function ATMIntelligence() {
       accent: "hover:border-sky-300 hover:shadow-[0_16px_32px_-16px_rgb(2_132_199/0.22)]",
       divider: "bg-sky-500/30",
       rows: [
-        ["Victim", activeCase.victim],
-        ["Fraud type", activeCase.fraudType],
-        ["Filed", activeCase.filedDate],
-        ["Loss", formatINR(activeCase.amount)],
+        ["Case number", activeCase?.case_number || "Not available"],
+        ["Complainant", activeCase?.victim || "Not available"],
+        ["Fraud type", activeCase?.fraudType || "Not available"],
+        ["Reported amount", activeCase?.amount == null ? "Not available" : formatINR(activeCase.amount)],
       ],
     },
     {
@@ -425,10 +513,10 @@ export default function ATMIntelligence() {
       accent: "hover:border-emerald-300 hover:shadow-[0_16px_32px_-16px_rgb(5_150_105/0.22)]",
       divider: "bg-emerald-500/30",
       rows: [
-        ["Bank", activeCase.bank],
-        ["Account", activeCase.account],
-        ["Cash-out", cashOutNodes.length ? cashOutNodes[0].name : "Not available"],
-        ["ATM disbursal", formatINR(cashOutTotal || 0)],
+        ["Bank", activeCase?.bank_name || "Not available"],
+        ["Account", activeCase?.account || activeCase?.account_number || "Not available"],
+        ["Complaint location", activeCase?.location || activeCase?.branch || "Not available"],
+        ["Complaint number", activeCase?.complaint_number || "Not available"],
       ],
     },
     {
@@ -438,10 +526,10 @@ export default function ATMIntelligence() {
       accent: "hover:border-violet-300 hover:shadow-[0_16px_32px_-16px_rgb(124_58_237/0.22)]",
       divider: "bg-violet-500/30",
       rows: [
-        ["Linked suspects", `${linkedSuspects.length}`],
-        ["Mule layers", `${maxLayer + 1}`],
-        ["Officer", activeCase.officer],
-        ["State", activeCase.status],
+        ["Case status", activeCase?.status || "Not available"],
+        ["Priority", activeCase?.priority || activeCase?.risk_level || "Not available"],
+        ["Assigned to", activeCase?.assigned_to || "Not assigned"],
+        ["Last updated", activeCase?.lastActivity || activeCase?.updated_at || activeCase?.created_at || "Not available"],
       ],
     },
   ];
@@ -450,20 +538,20 @@ export default function ATMIntelligence() {
     {
       name: "Graph intelligence",
       score: 94,
-      verdict: "High confidence chain match",
-      detail: `${linkedSuspects.length} suspects linked to the same flow and ${cashOutNodes.length} cash-out node(s) identified.`,
+      verdict: "Prototype reference",
+      detail: "This sample is not calculated from the selected live case.",
     },
     {
       name: "Temporal anomaly",
       score: 89,
-      verdict: "Rapid conversion pattern",
-      detail: `The movement burst reached ${formatINR(cashOutTotal || activeCase.amount)} within the first transfer window.`,
+      verdict: "Prototype reference",
+      detail: "This sample is not calculated from the selected live case.",
     },
     {
       name: "ATM behaviour model",
       score: 91,
-      verdict: "ATM withdrawal pattern strongly aligns with mule activity",
-      detail: `Branch activity shows ${cashOutNodes.length ? cashOutNodes[0].bank : activeCase.bank} as the conversion endpoint for this case.`,
+      verdict: "Prototype reference",
+      detail: "This sample is not calculated from the selected live case.",
     },
   ];
 
@@ -471,19 +559,52 @@ export default function ATMIntelligence() {
 
   // Opening an ATM from the map runs its prediction row through the same adapter
   // the watchlist uses, so the details card reads identically wherever it opens.
-  const handleMapAtmSelect = (row) => setSelectedAtm(atmFromPredictionRow(row));
+  const handleMapAtmSelect = (row) => setSelectedAtm(atmFromApiRow(row));
 
   return (
     <div className="space-y-6 p-6">
       <PageHeader
         title="ATM Intelligence"
-        description="Case-specific ATM risk review, cash-out pattern analysis, and AI-led escalation signals for active fraud investigations."
+        description="ATM catalog risk review with separately labeled prototype case examples; this page does not identify confirmed cash-out locations."
       />
 
+      <Card className="border-amber-500/30 bg-amber-500/10">
+        <CardContent className="p-4 text-sm text-amber-950">
+          The ATM table and ATM markers use the live backend catalog. Risk inference is shown only where returned by the ATM-risk model; other reference panels on this page remain prototype data. ATM risk is not complaint-to-ATM linkage or cash-out likelihood.
+          <p className="mt-2 font-medium">Imported/generated reference data — not verified cash-out events.</p>
+        </CardContent>
+      </Card>
+      {atmError && (
+        <p role="alert" className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800">
+          Live ATM catalog unavailable: {atmError}
+        </p>
+      )}
+      {!atmError && predictionError && (
+        <p role="status" className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800">
+          ATM catalog is live, but live prediction details could not be loaded: {predictionError}
+        </p>
+      )}
+      {caseError && (
+        <p role="alert" className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800">
+          Live case data unavailable: {caseError}
+        </p>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
-        <CaseSelector cases={cases} value={caseId} onValueChange={setCaseId} className="w-[360px]" />
-        <Badge className={cn("border px-2.5 py-1 text-xs font-medium", riskTone[activeCase.priority] || "bg-slate-500/10 text-slate-600")}>
-          {activeCase.priority.toUpperCase()} priority
+        {liveCases.length ? (
+          <CaseSelector
+            cases={liveCases}
+            value={caseId}
+            onValueChange={setCaseId}
+            className="w-[360px]"
+          />
+        ) : (
+          <p className="w-[360px] text-sm text-muted-foreground">
+            {caseLoading ? "Loading live cases…" : "No live cases are available."}
+          </p>
+        )}
+        <Badge className={cn("border px-2.5 py-1 text-xs font-medium", riskTone[String(activeCase?.priority || activeCase?.risk_level || "").toLowerCase()] || "bg-slate-500/10 text-slate-600")}>
+          {activeCase ? `${activeCase.priority || activeCase.risk_level || "Unrated"} priority` : "Case unavailable"}
         </Badge>
       </div>
 
@@ -517,24 +638,24 @@ export default function ATMIntelligence() {
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-base font-medium text-foreground">
-              Cash-out region map
+              Live ATM catalog with prototype caller/tower overlay
             </div>
             <Badge className="border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
-              {selectedRegion.confidence.toFixed(1)}% confidence
+              Live ATM records
             </Badge>
           </div>
 
           <CallerLocationAtmRiskZone
-            caseId={caseId}
-            investigationCases={cases}
-            onNearbyAtmsChange={setCallerCircleAtms}
+            atmRows={atmRecords}
+            atmLoading={atmLoading}
+            atmError={atmError}
             onAtmSelect={handleMapAtmSelect}
           />
         </div>
 
         <aside className="rounded-xl border bg-card p-3 shadow-sm">
           <div className="mb-2 border-b pb-2">
-            <h3 className="text-base font-semibold text-foreground">Regions</h3>
+            <h3 className="text-base font-semibold text-foreground">Prototype region examples</h3>
           </div>
           <div className="max-h-[340px] space-y-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {regionScores.map((region) => (
@@ -555,7 +676,7 @@ export default function ATMIntelligence() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <span className="block text-sm font-medium text-foreground">{region.name}</span>
-                      <span className="shrink-0 text-sm font-semibold text-foreground">{region.confidence.toFixed(1)}%</span>
+                      <span className="shrink-0 text-sm font-semibold text-foreground">{region.confidence.toFixed(1)}% ref.</span>
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                       <span>{region.matchedAtms} ATM corridors</span>
@@ -583,15 +704,13 @@ export default function ATMIntelligence() {
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-base font-medium text-foreground">Ranked ATM Watchlist</CardTitle>
+            <CardTitle className="text-base font-medium text-foreground">ATM catalog</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              Predicted cash-out locations for {selectedRegion.name}
+              Live records from GET /api/atms. ATM risk and prediction provenance are shown separately.
             </p>
           </div>
           <Badge className="border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
-            {callerCircleAtms.length
-              ? `${selectedAtms.length} ranked · ${callerCircleAtms.length} in caller zone`
-              : `${selectedAtms.length} ranked ATMs`}
+            {atmLoading ? "Loading ATMs" : `${selectedAtms.length} ATM records`}
           </Badge>
         </CardHeader>
         <CardContent>
@@ -600,7 +719,7 @@ export default function ATMIntelligence() {
             <table className="w-full min-w-[980px] text-sm">
               <thead className="bg-muted/40 text-xs text-muted-foreground">
                 <tr className="border-b">
-                  {["Rank", "ATM", "Location", "Risk score", "Linked cases", "Fraud amount", "Predicted window", "Status", "View details"].map((heading) => (
+                  {["No.", "ATM ID", "Bank", "City", "Coordinates", "Stored risk score", "Risk level", "Model / provenance", "View details"].map((heading) => (
                     <th key={heading} className="px-4 py-3 text-left font-medium">
                       {heading}
                     </th>
@@ -608,17 +727,19 @@ export default function ATMIntelligence() {
                 </tr>
               </thead>
               <tbody>
-                {selectedAtms.map((atm) => (
+                {selectedAtms.map((atm, index) => (
                   <tr key={atm.atm} className="border-b last:border-0 hover:bg-muted/20">
-                    <td className="px-4 py-3 font-medium text-foreground">{atm.rank}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">{index + 1}</td>
                     <td className="px-4 py-3 font-medium text-foreground">{atm.atm}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{atm.location}</td>
-                    <td className="px-4 py-3 font-semibold text-foreground">{atm.riskScore}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{atm.linkedCases}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{atm.fraudAmount}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{atm.predictedWindow}</td>
-                    <td className="px-4 py-3">
-                      <Badge className="border border-red-200 bg-red-500/10 text-red-600">{atm.status}</Badge>
+                    <td className="px-4 py-3 text-muted-foreground">{atm.bank}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{atm.city}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {atm.latitude == null || atm.longitude == null ? "Not available" : `${atm.latitude}, ${atm.longitude}`}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-foreground">{atm.riskScore == null ? "Not available" : atm.riskScore}</td>
+                    <td className="px-4 py-3"><Badge variant="secondary">{atm.status}</Badge></td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {atm.provenance === "live_atm_risk_inference" ? `Live · ${atm.modelVersion}` : atm.riskLevelSource}
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -632,6 +753,9 @@ export default function ATMIntelligence() {
                     </td>
                   </tr>
                 ))}
+                {!atmLoading && !atmError && selectedAtms.length === 0 && (
+                  <tr><td colSpan="9" className="px-4 py-6 text-center text-muted-foreground">No ATM catalog records are available.</td></tr>
+                )}
               </tbody>
             </table>
             </div>
@@ -645,7 +769,7 @@ export default function ATMIntelligence() {
             <div>
               <CardTitle className="text-base font-medium text-foreground">ATM intelligence details</CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">
-                Detailed model output for {atmDetails.atm} in {selectedRegion.name}
+                ATM risk details for {atmDetails.atm}; no complaint-to-ATM or cash-out prediction is made.
               </p>
             </div>
             <button
@@ -668,12 +792,12 @@ export default function ATMIntelligence() {
                 {[
                   ["ATM ID", atmDetails.atm],
                   ["Location", atmDetails.location],
-                  ["Risk score", `${atmDetails.riskScore} / 100`],
+                  ["Stored risk score", atmDetails.riskScore == null ? "Not available" : atmDetails.riskScore],
                   ["Risk level", atmDetails.status],
-                  ["Linked cases", atmDetails.linkedCases],
-                  ["Total fraud amount", atmDetails.fraudAmount],
-                  ["Predicted window", atmDetails.predictedWindow],
-                  ["Last suspicious activity", atmDetails.lastActivity],
+                  ["Latitude", atmDetails.latitude ?? "Not available"],
+                  ["Longitude", atmDetails.longitude ?? "Not available"],
+                  ["Prediction updated", atmDetails.predictionUpdatedAt ? new Date(atmDetails.predictionUpdatedAt).toLocaleString() : "Not available"],
+                  ["Risk data provenance", atmDetails.riskLevelSource],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-lg border bg-background p-3">
                     <p className="text-xs text-muted-foreground">{label}</p>
@@ -686,15 +810,25 @@ export default function ATMIntelligence() {
             <section className="border-t pt-5 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
               <div className="mb-4 flex items-center gap-2">
                 <ShieldAlert className="h-4 w-4 text-amber-600" />
-                <h3 className="text-sm font-semibold text-foreground">Why this ATM was predicted</h3>
+                <h3 className="text-sm font-semibold text-foreground">ATM risk factors</h3>
               </div>
+              <p className="mb-3 text-xs text-muted-foreground">
+                This is ATM risk classification, not a prediction that this ATM handled a complaint-related cash-out.
+              </p>
               <div className="mb-4 rounded-lg border bg-primary/[0.03] p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-muted-foreground">Model confidence</span>
-                  <span className="text-lg font-semibold text-foreground">{atmDetails.riskScore}%</span>
+                  <span className="text-xs text-muted-foreground">Classifier class probability (not calibrated)</span>
+                  <span className="text-lg font-semibold text-foreground">
+                    {atmDetails.predictionConfidence == null ? "Not available" : `${atmDetails.predictionConfidence}%`}
+                  </span>
                 </div>
+                {atmDetails.predictionConfidence != null && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">{atmDetails.confidenceType}</p>
+                )}
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${atmDetails.riskScore}%` }} />
+                  {atmDetails.predictionConfidence != null && atmDetails.predictionConfidence >= 0 && atmDetails.predictionConfidence <= 100 && (
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${atmDetails.predictionConfidence}%` }} />
+                  )}
                 </div>
               </div>
               <ul className="space-y-3 text-sm text-muted-foreground">
@@ -708,8 +842,7 @@ export default function ATMIntelligence() {
               <div className="mt-4 flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
                 <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <span>
-                  The model combines historical mule-account activity, linked case density, fraud value, regional patterns,
-                  and predicted timing to rank this ATM.
+                  The live ATM-risk classifier uses ATM catalog features. Other case, regional, and timing panels on this page are separately labeled prototype reference content.
                 </span>
               </div>
             </section>
@@ -771,9 +904,10 @@ export default function ATMIntelligence() {
                 type="button"
                 size="sm"
                 variant="ghost"
-                onClick={() => navigate(`/cases/${activeCase.id}`)}
+                onClick={() => activeCase && navigate(`/cases/${activeCase.id}`)}
+                disabled={!activeCase}
                 className="h-7 shrink-0 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-                title={`Open case file ${activeCase.id}`}
+                title={activeCase ? `Open case file ${activeCase.case_number || activeCase.id}` : "Live case data unavailable"}
               >
                 <FileText className="h-4 w-4" />
                 Open Case Details
@@ -781,7 +915,11 @@ export default function ATMIntelligence() {
               </Button>
             </CardHeader>
             <CardContent className="grid flex-1 auto-rows-fr gap-3 p-4 sm:grid-cols-2">
-              {recommendedActions.map((action) => {
+              {!activeCase ? (
+                <p className="col-span-full self-center text-sm text-muted-foreground">
+                  {caseLoading ? "Loading live case data…" : "Recommended actions are unavailable until a live case is selected."}
+                </p>
+              ) : recommendedActions.map((action) => {
                 const { icon: Icon } = action;
                 const record = getRecord(action.actionType);
                 const isInitiated = Boolean(record);

@@ -21,8 +21,8 @@ export default function SuspectDatabase() {
         title={isMule ? "Mule Account Database" : "Suspect Database"}
         description={
           isMule
-            ? "Browse, review, and coordinate fraud-linked mule accounts."
-            : "Browse, add, and import suspects into the registry."
+            ? "Prototype mule-account records only; no verified backend registry is available."
+            : "Prototype suspect records only; no verified backend registry is available."
         }
         actions={
           <Tabs value={registry} onValueChange={setRegistry}>

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, MapPinned, Maximize2, Minimize2 } from "lucide-react";
+import { getPredictions } from "@/lib/api";
 
 const HEAT_GRADIENT = {
   0.0: "#1234a6",
@@ -24,7 +25,7 @@ function unique(rows, key) {
   return [...new Set(rows.map((row) => row[key]).filter(Boolean))].sort();
 }
 
-export default function FraudHeatmap() {
+export default function FraudHeatmap({ candidateAtms = null } = {}) {
   const cardRef = useRef(null);
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
@@ -40,8 +41,10 @@ export default function FraudHeatmap() {
   const [fromTime, setFromTime] = useState("00:00");
   const [toTime, setToTime] = useState("23:59");
   const [error, setError] = useState("");
+  const [predictionNotice, setPredictionNotice] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mapRevision, setMapRevision] = useState(0);
+  const candidateMode = Array.isArray(candidateAtms);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -50,7 +53,7 @@ export default function FraudHeatmap() {
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
+  }, [candidateAtms, candidateMode]);
 
   useLayoutEffect(() => {
     let disposed = false;
@@ -153,21 +156,30 @@ export default function FraudHeatmap() {
   }, [isFullscreen, mapRevision]);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/fraud_incidents.csv").then((response) => {
-        if (!response.ok) throw new Error("fraud incidents unavailable");
-        return response.text();
-      }),
-      fetch("/atm_predictions.csv").then((response) => {
-        if (!response.ok) throw new Error("ATM predictions unavailable");
-        return response.text();
-      }),
-    ])
-      .then(([incidentText, atmText]) => {
-        setRows(parseCsv(incidentText));
-        setAtmRows(parseCsv(atmText));
-      })
-      .catch(() => setError("Could not load the fraud incident or ATM data."));
+    const loadData = async () => {
+      if (candidateMode) {
+        setRows([]);
+        setAtmRows(candidateAtms);
+        return;
+      }
+      const incidentResponse = await fetch("/fraud_incidents.csv");
+      if (!incidentResponse.ok) throw new Error("Fraud incident dataset is unavailable");
+      const incidentText = await incidentResponse.text();
+      let predictions;
+      try {
+        predictions = await getPredictions();
+        if (!predictions.length) throw new Error("No saved ATM predictions are available");
+      } catch (backendError) {
+        const offlineResponse = await fetch("/atm_predictions.csv");
+        if (!offlineResponse.ok) throw new Error("Backend predictions and bundled ATM output are unavailable");
+        predictions = parseCsv(await offlineResponse.text());
+        setPredictionNotice(`Showing bundled offline ATM predictions; live API unavailable (${backendError.message}).`);
+      }
+      setRows(parseCsv(incidentText));
+      setAtmRows(predictions);
+    };
+
+    loadData().catch((loadError) => setError(loadError.message || "Could not load the fraud incident or ATM data."));
   }, []);
 
   const cities = useMemo(() => unique(rows, "city"), [rows]);
@@ -193,22 +205,29 @@ export default function FraudHeatmap() {
 
   const rankedAtms = useMemo(
     () =>
-      atmRows
+      (candidateMode ? candidateAtms : atmRows)
         .filter(
           (row) =>
             (city === "ALL" || row.city === city) &&
-            (risk === "ALL" || String(row.risk_level || "").toUpperCase() === risk),
+            (risk === "ALL" || String(row.atm_risk_level || row.atm_risk_inference?.risk_level || row.risk_level || "").toUpperCase() === risk),
         )
         .map((row) => ({
           id: row.atm_id || row.id,
           bank: row.bank_name || "—",
           city: row.city || "—",
-          score: Number.isFinite(Number(row.risk_score)) ? Number(row.risk_score) : 0,
-          level: String(row.risk_level || "LOW").toUpperCase(),
+          score:
+            row.historical_risk_score == null && row.risk_score == null
+              ? null
+              : Number.isFinite(Number(row.historical_risk_score ?? row.risk_score))
+                ? Number(row.historical_risk_score ?? row.risk_score)
+                : null,
+          level: String(row.atm_risk_level || row.atm_risk_inference?.risk_level || row.risk_level || "UNRATED").toUpperCase(),
         }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 8),
-    [atmRows, city, risk],
+        .sort((a, b) => candidateMode
+          ? String(a.id).localeCompare(String(b.id))
+          : (b.score ?? -Infinity) - (a.score ?? -Infinity))
+        .slice(0, candidateMode ? candidateAtms.length : 8),
+    [atmRows, candidateAtms, candidateMode, city, risk],
   );
 
   useEffect(() => {
@@ -219,7 +238,20 @@ export default function FraudHeatmap() {
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    const points = filtered
+    const candidateRows = candidateMode
+      ? candidateAtms.filter((row) =>
+          (city === "ALL" || row.city === city) &&
+          (risk === "ALL" || String(row.atm_risk_level || "").toUpperCase() === risk))
+      : [];
+    const points = (candidateMode
+      ? candidateRows.map((row) => [
+          Number(row.latitude),
+          Number(row.longitude),
+          String(row.atm_risk_level || "").toUpperCase() === "HIGH" ? 1
+            : String(row.atm_risk_level || "").toUpperCase() === "MEDIUM" ? 0.7
+              : String(row.atm_risk_level || "").toUpperCase() === "LOW" ? 0.4 : 0.2,
+        ])
+      : filtered
       .map((row) => [
         Number(row.latitude),
         Number(row.longitude),
@@ -230,10 +262,10 @@ export default function FraudHeatmap() {
             : String(row.risk_level || "").toUpperCase() === "CRITICAL"
               ? 1
               : 0.4,
-      ])
+      ]))
       .filter(([latitude, longitude]) => Number.isFinite(latitude) && Number.isFinite(longitude));
 
-    if (points.length && typeof L.heatLayer === "function") {
+    if (!candidateMode && points.length && typeof L.heatLayer === "function") {
       heatRef.current = L.heatLayer(points, {
         radius: 38,
         blur: 25,
@@ -244,19 +276,24 @@ export default function FraudHeatmap() {
       }).addTo(map);
     }
 
-    filtered.forEach((row) => {
+    (candidateMode ? candidateRows : filtered).forEach((row) => {
       const latitude = Number(row.latitude);
       const longitude = Number(row.longitude);
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+      const atmRiskLevel = row.atm_risk_level || row.atm_risk_inference?.risk_level;
       const marker = L.circleMarker([latitude, longitude], {
-        radius: 4,
-        fillColor: "#111827",
+        radius: candidateMode ? 7 : 4,
+        fillColor: candidateMode
+          ? ({ HIGH: "#9a3412", MEDIUM: "#854d0e", LOW: "#166534" }[String(atmRiskLevel || "").toUpperCase()] || "#475569")
+          : "#111827",
         color: "#ffffff",
         weight: 1,
         fillOpacity: 0.9,
       })
         .bindPopup(
-          `<strong>${row.incident_id || "Fraud case"}</strong><br />Date: ${row.date || "—"} ${row.time || ""}<br />City: ${row.city || "—"}<br />Area: ${row.area || "—"}<br />Crime: ${row.crime_type || "—"}<br />Risk: ${row.risk_level || "—"}`,
+          candidateMode
+            ? `<strong>${row.atm_id || "ATM"} · same-city candidate</strong><br />Bank: ${row.bank_name || "—"}<br />City: ${row.city || "—"}<br />ATM risk level: ${atmRiskLevel || "Not inferred"}<br />Classifier probability: ${row.atm_risk_confidence ?? "—"}%<br />Not a confirmed cash-out location.`
+            : `<strong>${row.incident_id || "Fraud case"}</strong><br />Date: ${row.date || "—"} ${row.time || ""}<br />City: ${row.city || "—"}<br />Area: ${row.area || "—"}<br />Crime: ${row.crime_type || "—"}<br />Risk: ${row.risk_level || "—"}`,
         )
         .addTo(map);
       markersRef.current.push(marker);
@@ -268,7 +305,7 @@ export default function FraudHeatmap() {
         { maxZoom: 10, animate: false },
       );
     }
-  }, [filtered, mapRevision]);
+  }, [candidateAtms, candidateMode, city, filtered, mapRevision, risk]);
 
   const reset = () => {
     setCity("ALL");
@@ -306,7 +343,7 @@ export default function FraudHeatmap() {
         <div className="flex xl:flex-1 xl:-translate-x-4 xl:items-center xl:justify-center">
           <h2 className="inline-flex min-h-12 w-70 items-center gap-2 whitespace-nowrap px-6 py-3 text-base font-semibold text-primary">
             <MapPinned aria-hidden="true" className="h-6 w-6 shrink-0" />
-            Fraud Heatmap
+            {candidateMode ? "Same-city ATM candidates" : "Fraud Heatmap"}
           </h2>
         </div>
         <button
@@ -318,6 +355,11 @@ export default function FraudHeatmap() {
         >
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
+        {candidateMode ? (
+          <p className="text-xs text-muted-foreground">
+            Same-city catalog candidates · ATM risk only, not predicted or confirmed cash-out locations.
+          </p>
+        ) : (
         <div className="grid w-full gap-2 sm:grid-cols-2 xl:max-w-4xl xl:grid-cols-4">
           <div className="relative">
             <select className="h-9 w-full appearance-none rounded-md border bg-background pl-2 pr-10 text-xs" value={city} onChange={(event) => setCity(event.target.value)}>
@@ -352,8 +394,14 @@ export default function FraudHeatmap() {
             <input className="h-9 w-32 shrink-0 rounded-md border bg-background px-2 text-xs" type="time" value={toTime} onChange={(event) => setToTime(event.target.value)} aria-label="To time" />
           </div>
         </div>
+        )}
       </div>
 
+      {predictionNotice && (
+        <p className="mx-3 mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
+          {predictionNotice}
+        </p>
+      )}
       {error ? (
         <div className="flex min-h-96 items-center justify-center p-6 text-sm text-destructive">{error}</div>
       ) : (
@@ -366,7 +414,7 @@ export default function FraudHeatmap() {
           </div>
           <aside className={`overflow-auto border-t [scrollbar-width:none] lg:border-l lg:border-t-0 [&::-webkit-scrollbar]:hidden ${isFullscreen ? "max-h-none" : "max-h-[27.5rem]"}`}>
             <div className="m-3 flex items-center justify-between rounded-lg border bg-background p-4 shadow-sm">
-              <div><h3 className="text-sm font-semibold">ATM Ranking</h3><p className="text-[11px] text-muted-foreground">Highest risk first</p></div>
+              <div><h3 className="text-sm font-semibold">{candidateMode ? "Same-city ATM candidates" : "ATM Ranking"}</h3><p className="text-[11px] text-muted-foreground">{candidateMode ? "ATM-risk classification only; score is historical reference" : "Highest reference risk first"}</p></div>
               <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-primary/10 px-2 text-xs font-bold text-primary">{rankedAtms.length}</span>
             </div>
             <div className="px-3 pb-3">
@@ -374,7 +422,7 @@ export default function FraudHeatmap() {
                 <div className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-2 border-b py-3 last:border-0" key={atm.id}>
                   <span className="text-xs font-bold text-muted-foreground">#{index + 1}</span>
                   <div className="min-w-0"><strong className="block truncate text-xs">{atm.id}</strong><span className="block truncate text-[10px] text-muted-foreground">{atm.bank} · {atm.city}</span></div>
-                  <div className="text-right"><strong className="block text-sm">{atm.score.toFixed(0)}</strong><span className="text-[9px] font-bold uppercase text-muted-foreground">{atm.level}</span></div>
+                  <div className="text-right"><strong className="block text-sm">{atm.score == null ? "—" : `${atm.score.toFixed(0)} ref.`}</strong><span className="text-[9px] font-bold uppercase text-muted-foreground">{atm.level}</span></div>
                 </div>
               )) : <div className="p-4 text-center text-xs text-muted-foreground">No ATMs match the selected filters.</div>}
             </div>
@@ -382,10 +430,10 @@ export default function FraudHeatmap() {
         </div>
       )}
       <div className="flex flex-wrap gap-4 border-t px-4 py-3 text-xs text-muted-foreground">
-        <span><b>Cases shown:</b> {filtered.length}</span>
-        <span><b>Crime:</b> {crimeType === "ALL" ? "All" : crimeType}</span>
+        <span><b>{candidateMode ? "Candidates shown" : "Cases shown"}:</b> {candidateMode ? rankedAtms.length : filtered.length}</span>
+        {!candidateMode && <span><b>Crime:</b> {crimeType === "ALL" ? "All" : crimeType}</span>}
         <span><b>Location:</b> {city === "ALL" ? "India" : city}</span>
-        <span className="ml-auto"><b>Fraud density</b></span>
+        <span className="ml-auto"><b>{candidateMode ? "ATM risk · not cash-out likelihood" : "Fraud density · reference incidents"}</b></span>
       </div>
     </div>
   );

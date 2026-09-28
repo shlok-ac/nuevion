@@ -9,10 +9,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { alerts, cases, formatINR } from "@/lib/investigationData";
+import { formatINR } from "@/lib/investigationData";
+import { getAlerts } from "@/lib/api";
 import { cn } from "@/lib/utils";
-
-const chainFor = (caseId) => cases.find((c) => c.id === caseId)?.muleChainId;
 
 // Rendered by `CommandLayout` on the dashboard only, so the heading is fixed and
 // every search keystroke hands off to Case Management.
@@ -20,10 +19,29 @@ export default function Topbar() {
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState("");
+  const [alerts, setAlerts] = useState([]);
+  const [alertError, setAlertError] = useState("");
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getAlerts()
+      .then((data) => {
+        if (active) {
+          setAlerts(Array.isArray(data) ? data : []);
+          setAlertError("");
+        }
+      })
+      .catch((error) => {
+        if (active) setAlertError(error.message || "Stored alerts are unavailable.");
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleSearchChange = (event) => {
@@ -56,30 +74,32 @@ export default function Topbar() {
         <DropdownMenuTrigger asChild>
           <button className="relative rounded-md p-2 hover:bg-accent">
             <Bell className="h-4 w-4" />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
+            {alerts.length > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-80">
           <DropdownMenuLabel>Priority Alerts</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {alerts.map((a) => (
+          {alertError ? (
+            <DropdownMenuItem disabled>{alertError}</DropdownMenuItem>
+          ) : alerts.length ? alerts.map((a) => (
             <DropdownMenuItem key={a.id} asChild>
-              <Link to="/money-trail" state={{ caseId: chainFor(a.caseId) }} className="flex items-start gap-2 py-2">
+              <Link to={a.case_id ? `/money-trail?case=${encodeURIComponent(a.case_id)}` : "/case-management"} className="flex items-start gap-2 py-2">
                 <span
                   className={cn(
                     "mt-1 h-2 w-2 shrink-0 rounded-full",
-                    a.severity === "critical" ? "bg-red-500" : "bg-amber-500"
+                    String(a.severity || "").toLowerCase() === "critical" ? "bg-red-500" : "bg-amber-500"
                   )}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium leading-tight">{a.message}</p>
                   <p className="text-xs text-muted-foreground">
-                    {a.caseId} · {a.time} · {a.amount ? formatINR(a.amount) : "—"}
+                    {a.case_id ? `Case ${a.case_id}` : a.alert_type || "Stored alert"} · {a.created_at || "—"} · {a.amount ? formatINR(a.amount) : "—"}
                   </p>
                 </div>
               </Link>
             </DropdownMenuItem>
-          ))}
+          )) : <DropdownMenuItem disabled>No stored alerts are available.</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">

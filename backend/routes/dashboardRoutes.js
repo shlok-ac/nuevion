@@ -2,9 +2,8 @@ const express = require("express");
 const router = express.Router();
 
 const {
-    getCaseById,
-    getAllCases
-} = require("../controllers/caseController");
+    getDashboardData
+} = require("../controllers/dashboardController");
 
 const {
     authenticateToken,
@@ -15,14 +14,7 @@ router.get(
     "/",
     authenticateToken,
     authorizeRoles("analyst"),
-    getAllCases
-);
-
-router.get(
-    "/:caseId",
-    authenticateToken,
-    authorizeRoles("analyst"),
-    getCaseById
+    getDashboardData
 );
 
 module.exports = router;

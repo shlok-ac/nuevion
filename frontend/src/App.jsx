@@ -1,5 +1,5 @@
 import { Toaster } from "@/components/ui/toaster";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
 
 import ScrollToTop from "./components/ScrollToTop";
 
@@ -14,6 +14,12 @@ import SuspectDatabase from "@/pages/SuspectDatabase";
 import Export from "@/pages/Export";
 import Analytics from "@/pages/Analytics";
 import ATMIntelligence from "@/pages/ATMIntelligence";
+import LoginPage from "@/pages/LoginPage";
+
+const isAuthenticated = () => Boolean(localStorage.getItem("cyberfraud_token"));
+
+const ProtectedRoute = ({ children }) =>
+  isAuthenticated() ? children : <Navigate to="/login" replace />;
 
 function App() {
   return (
@@ -21,7 +27,15 @@ function App() {
       <ScrollToTop />
 
       <Routes>
-        <Route element={<CommandLayout />}>
+        <Route path="/login" element={<LoginPage />} />
+
+        <Route
+          element={
+            <ProtectedRoute>
+              <CommandLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route path="/" element={<CommandDashboard />} />
           <Route path="/case-management" element={<CaseManagement />} />
           <Route path="/cases/:caseId" element={<CaseDetails />} />
@@ -34,8 +48,7 @@ function App() {
           <Route path="/export" element={<Export />} />
         </Route>
 
-        {/* Send unknown URLs back to dashboard */}
-        <Route path="*" element={<CommandDashboard />} />
+        <Route path="*" element={<Navigate to={isAuthenticated() ? "/" : "/login"} replace />} />
       </Routes>
 
       <Toaster />

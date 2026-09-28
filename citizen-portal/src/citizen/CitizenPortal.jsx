@@ -4,6 +4,7 @@ import CitizenLayout from "./components/CitizenLayout";
 import CitizenHome from "./pages/CitizenHome";
 import ReportFraud from "./pages/ReportFraud/ReportFraud";
 import Confirmation from "./pages/Confirmation/Confirmation";
+import { getComplaintStatus } from "../lib/api";
 
 function ReportPlaceholder() {
   return <h1 style={{ padding: "40px" }}>Report Fraud</h1>;
@@ -15,87 +16,42 @@ function TrackPlaceholder() {
   const [mobile, setMobile] = React.useState("");
   const [complaint, setComplaint] = React.useState(null);
   const [error, setError] = React.useState("");
+  const [isTracking, setIsTracking] = React.useState(false);
 
-  const DEMO_STATUSES = [
-    "Received",
-    "Under Investigation",
-    "Action Required",
-    "Resolved",
-  ];
-
-  const getDemoStatus = (complaintNumber) => {
-    if (!complaintNumber) return "Received";
-
-    const numbers = String(complaintNumber)
-      .replace(/\D/g, "");
-
-    const lastTwo = Number(numbers.slice(-2) || 0);
-
-    return DEMO_STATUSES[lastTwo % DEMO_STATUSES.length];
-  };
-
-  const handleTrack = (e) => {
+  const handleTrack = async (e) => {
     e.preventDefault();
-
     setError("");
     setComplaint(null);
-
-    const storedComplaint = localStorage.getItem(
-      "nirikshanLatestComplaint"
-    );
-
-    if (!storedComplaint) {
-      setError(
-        "No complaint record found. Please submit a complaint first."
-      );
-      return;
-    }
+    setIsTracking(true);
 
     try {
-      const data = JSON.parse(storedComplaint);
-
       const enteredId = complaintId.trim().toUpperCase();
-
-      const storedId = String(
-        data.complaintNumber || ""
-      ).toUpperCase();
-
       const enteredMobile = mobile.trim();
-
-      const storedMobile = String(
-        data.mobile || ""
-      ).trim();
-
-      if (
-        enteredId !== storedId ||
-        enteredMobile !== storedMobile
-      ) {
-        setError(
-          "Complaint ID or mobile number does not match our records."
+      const result = await getComplaintStatus(enteredId, enteredMobile);
+      let localComplaint = {};
+      try {
+        const storedComplaint = JSON.parse(
+          localStorage.getItem("nirikshanLatestComplaint") || "null"
         );
-        return;
+        if (
+          storedComplaint?.complaintNumber?.toUpperCase() === enteredId &&
+          storedComplaint?.mobile === enteredMobile
+        ) {
+          localComplaint = storedComplaint;
+        }
+      } catch {
+        localComplaint = {};
       }
-
-      /*
-       * DEMO STATUS
-       *
-       * This is temporary for the SIH prototype.
-       * Later this value will come from the backend API.
-       */
-      const demoStatus = getDemoStatus(
-        data.complaintNumber
-      );
-
       setComplaint({
-        ...data,
-        status: demoStatus,
+        ...localComplaint,
+        complaintNumber: result.complaint_number,
+        status: result.status,
+        submittedAt: result.created_at,
       });
-    } catch (err) {
-      console.error("Track complaint error:", err);
-
-      setError(
-        "Unable to read the complaint record. Please submit the complaint again."
-      );
+    } catch (trackError) {
+      setError(trackError.message || "Unable to retrieve complaint status.");
+    } finally {
+      setIsTracking(false);
     }
   };
 
@@ -177,8 +133,9 @@ function TrackPlaceholder() {
             <button
               type="submit"
               className="track-submit-button"
+              disabled={isTracking}
             >
-              Track Complaint
+              {isTracking ? "Checking..." : "Track Complaint"}
             </button>
 
           </form>
@@ -200,16 +157,6 @@ function TrackPlaceholder() {
                   {complaint.status}
                 </span>
 
-              </div>
-
-              <div className="track-demo-notice">
-                <strong>SIH Prototype</strong>
-
-                <span>
-                  Status shown here is demo data for the
-                  current prototype. It will be connected
-                  to the live backend status later.
-                </span>
               </div>
 
               <div className="track-timeline">

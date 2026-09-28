@@ -21,7 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import PageHeader from "@/components/command/PageHeader";
-import { cases, formatINR } from "@/lib/investigationData";
+import { formatINR } from "@/lib/investigationData";
+import { getDashboardData } from "@/lib/api";
 import { ArrowRight, CalendarDays, Check, ChevronDown, Clock3, ClipboardList, RotateCcw, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -164,6 +165,8 @@ function RegionSelect({ regions, value, onValueChange }) {
 }
 
 export default function CaseManagement() {
+  const [cases, setCases] = useState([]);
+  const [loadError, setLoadError] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
   const searchFromUrl = searchParams.get("search") ?? "";
   const [filters, setFilters] = useState(() => ({
@@ -172,18 +175,40 @@ export default function CaseManagement() {
   }));
 
   useEffect(() => {
+    let active = true;
+
+    const loadCases = async () => {
+      try {
+        const data = await getDashboardData();
+        if (active && Array.isArray(data.cases)) {
+          setCases(data.cases);
+          setLoadError("");
+        }
+      } catch (error) {
+        if (active) setLoadError(error.message || "Cases are unavailable.");
+      }
+    };
+
+    loadCases();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     setFilters((current) =>
       current.search === searchFromUrl ? current : { ...current, search: searchFromUrl }
     );
   }, [searchFromUrl]);
 
   const locations = useMemo(
-    () => [...new Set(cases.map((caseItem) => caseItem.branch))],
-    []
+    () => [...new Set(cases.map((caseItem) => caseItem.branch || caseItem.bank_name || "Unknown"))],
+    [cases]
   );
   const crimeTypes = useMemo(
-    () => [...new Set(cases.map((caseItem) => caseItem.fraudType))],
-    []
+    () => [...new Set(cases.map((caseItem) => caseItem.fraudType || caseItem.transaction_type || "Unknown"))],
+    [cases]
   );
 
   const filteredCases = useMemo(() => {
@@ -192,16 +217,15 @@ export default function CaseManagement() {
     const to = filters.toDate ? `${filters.toDate}T${filters.toTime}` : "";
 
     return cases.filter((caseItem) => {
-      const searchableText = [
-        caseItem.id,
-        caseItem.title,
-        caseItem.victim,
-        caseItem.account,
-        ...caseItem.suspectIds,
-      ].join(" ").toLowerCase();
-      const caseDateTime = caseItem.lastActivity.replace(" ", "T");
-      const status = caseItem.status.toLowerCase();
-      const priority = caseItem.priority.toLowerCase();
+      const caseId = caseItem.id || caseItem.case_number || "";
+      const title = caseItem.title || caseItem.description || "";
+      const victim = caseItem.victim || caseItem.complainant_name || "";
+      const account = caseItem.account || caseItem.account_number || "";
+      const suspectIds = Array.isArray(caseItem.suspectIds) ? caseItem.suspectIds : [];
+      const searchableText = [caseId, title, victim, account, ...suspectIds].join(" ").toLowerCase();
+      const caseDateTime = (caseItem.lastActivity || caseItem.updated_at || caseItem.created_at || "").replace(" ", "T");
+      const status = String(caseItem.status || "").toLowerCase();
+      const priority = String(caseItem.priority || caseItem.risk_level || "").toLowerCase();
 
       return (
         (!search || searchableText.includes(search)) &&
@@ -212,12 +236,12 @@ export default function CaseManagement() {
         (filters.risk === "all" || priority === filters.risk) &&
         (filters.crimeType === "all" || caseItem.fraudType === filters.crimeType)
       );
-    }).sort(
-      (first, second) =>
-        new Date(second.lastActivity.replace(" ", "T")) -
-        new Date(first.lastActivity.replace(" ", "T"))
-    );
-  }, [filters]);
+    }).sort((first, second) => {
+      const firstTime = new Date((second.lastActivity || second.updated_at || second.created_at || "").replace(" ", "T"));
+      const secondTime = new Date((first.lastActivity || first.updated_at || first.created_at || "").replace(" ", "T"));
+      return Number(firstTime) - Number(secondTime);
+    });
+  }, [cases, filters]);
 
   const updateFilter = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -240,6 +264,11 @@ export default function CaseManagement() {
   return (
     <div className="space-y-6 p-6">
       <PageHeader title="Case Management" description="Manage and review investigation cases." />
+      {loadError && (
+        <p role="alert" className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800">
+          Case data unavailable: {loadError}
+        </p>
+      )}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Find cases</CardTitle>

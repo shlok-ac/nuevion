@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   BrainCircuit,
@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PageHeader from "@/components/command/PageHeader";
+import { getDashboardData } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const chartColors = {
@@ -90,28 +91,8 @@ const caseData = {
 };
 
 const modelData = {
-  performance: [
-    { day: "18 Sep", predicted: 38, actual: 35 },
-    { day: "19 Sep", predicted: 44, actual: 42 },
-    { day: "20 Sep", predicted: 41, actual: 43 },
-    { day: "21 Sep", predicted: 55, actual: 51 },
-    { day: "22 Sep", predicted: 48, actual: 50 },
-    { day: "23 Sep", predicted: 62, actual: 59 },
-    { day: "24 Sep", predicted: 68, actual: 65 },
-  ],
-  confidence: [
-    { range: "50–60%", value: 18 },
-    { range: "60–70%", value: 34 },
-    { range: "70–80%", value: 76 },
-    { range: "80–90%", value: 142 },
-    { range: "90–100%", value: 218 },
-  ],
-  confusion: [
-    { label: "True positive", value: "284", percentage: "56.8%" },
-    { label: "False positive", value: "18", percentage: "3.6%" },
-    { label: "False negative", value: "24", percentage: "4.8%" },
-    { label: "True negative", value: "174", percentage: "34.8%" },
-  ],
+  performance: [],
+  confidence: [],
 };
 
 const tooltipStyle = {
@@ -205,7 +186,7 @@ function KpiCard({ label, value, detail, icon: Icon, tone = "blue" }) {
   );
 }
 
-function CaseAnalytics() {
+function CaseAnalytics({ cases, dataLoaded }) {
   const [range, setRange] = useState("7");
   const [metric, setMetric] = useState("cases");
   const [selectedRegion, setSelectedRegion] = useState("Pune");
@@ -213,22 +194,27 @@ function CaseAnalytics() {
   const regionMetric = metric === "cases" ? "cases" : "amount";
   const regionUnit = metric === "cases" ? " cases" : " Cr";
 
+  const activeCases = cases.filter((item) => !["resolved", "closed"].includes(String(item.status || "").toLowerCase()));
+  const criticalCases = cases.filter((item) =>
+    [item.priority, item.risk_level].some((value) => String(value || "").toLowerCase() === "critical")
+  );
+  const reportedAmount = cases.reduce((sum, item) => sum + Number(item.amount || item.fraud_amount || 0), 0);
+  const resolvedCases = cases.filter((item) => String(item.status || "").toLowerCase() === "resolved");
   const insights = useMemo(() => {
-    const period = range === "7" ? "the last 7 days" : "the last 30 days";
     return [
-      `Critical cases account for ${Math.round((42 / 124) * 100)}% of active investigations.`,
-      `${selectedRegion} has the highest reported fraud amount in ${period}.`,
-      `Average case value increased by ${range === "7" ? "12" : "18"}% versus the previous period.`,
+      `${cases.length} live case records are included in the dashboard data.`,
+      `The activity, region, risk and status charts below are prototype reference series.`,
+      `${selectedRegion} is the currently selected region in that reference chart.`,
     ];
-  }, [range, selectedRegion]);
+  }, [cases.length, selectedRegion]);
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Active Cases" value="124" detail="+8.4% this period" icon={FileSearch} />
-        <KpiCard label="Critical Cases" value="42" detail="18 requiring escalation" icon={ShieldAlert} tone="red" />
-        <KpiCard label="Fraud Amount" value="₹31.4 Cr" detail="+12.1% this period" icon={CircleDollarSign} tone="amber" />
-        <KpiCard label="Resolved Cases" value="216" detail="63% resolution rate" icon={CheckCircle2} tone="teal" />
+        <KpiCard label="Active Cases" value={dataLoaded ? activeCases.length : "Not available"} detail="Live cases not marked resolved or closed" icon={FileSearch} />
+        <KpiCard label="Critical Cases" value={dataLoaded ? criticalCases.length : "Not available"} detail="Live case priority/risk classification" icon={ShieldAlert} tone="red" />
+        <KpiCard label="Fraud Amount" value={dataLoaded ? `₹${reportedAmount.toLocaleString("en-IN")}` : "Not available"} detail="Sum of reported live case amounts" icon={CircleDollarSign} tone="amber" />
+        <KpiCard label="Resolved Cases" value={dataLoaded ? resolvedCases.length : "Not available"} detail="Live cases marked resolved" icon={CheckCircle2} tone="teal" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
@@ -346,14 +332,14 @@ function ModelAnalytics() {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Model Accuracy" value="91.6%" detail="+2.3% since last evaluation" icon={Gauge} />
-        <KpiCard label="Precision" value="94.0%" detail="Low false-positive rate" icon={Target} tone="teal" />
-        <KpiCard label="Recall" value="92.2%" detail="Fraud capture remains strong" icon={Activity} tone="amber" />
-        <KpiCard label="F1 Score" value="93.1%" detail="Balanced model performance" icon={BrainCircuit} tone="blue" />
+        <KpiCard label="Model Accuracy" value="Not available" detail="No verified outcome evaluation data" icon={Gauge} />
+        <KpiCard label="Precision" value="Not available" detail="No verified outcome evaluation data" icon={Target} tone="teal" />
+        <KpiCard label="Recall" value="Not available" detail="No verified outcome evaluation data" icon={Activity} tone="amber" />
+        <KpiCard label="F1 Score" value="Not available" detail="No verified outcome evaluation data" icon={BrainCircuit} tone="blue" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
-        <ChartCard title="Prediction Performance" description="Predicted versus actual fraud cases over time">
+        <ChartCard title="Prediction Performance" description="No verified predicted-versus-actual outcome records are available">
           <ResponsiveContainer width="100%" height={235}>
             <LineChart data={modelData.performance} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -367,7 +353,7 @@ function ModelAnalytics() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Confusion Matrix" description="Evaluation set: 500 predictions">
+        <ChartCard title="Confusion Matrix" description="No verified outcome evaluation data">
           <div className="grid grid-cols-[28px_70px_1fr_1fr] gap-2 text-center text-xs">
             <div className="row-span-3 row-start-2 flex items-center justify-center font-medium text-muted-foreground [writing-mode:vertical-rl] rotate-180">
               Predicted
@@ -376,17 +362,17 @@ function ModelAnalytics() {
             <div className="col-start-3 row-start-2 font-medium text-muted-foreground">Fraud</div>
             <div className="col-start-4 row-start-2 font-medium text-muted-foreground">Normal</div>
             <div className="col-start-2 row-start-3 flex items-center justify-end pr-2 font-medium text-muted-foreground">Fraud</div>
-            <div className="col-start-3 row-start-3 rounded-lg bg-teal-50 p-3 text-teal-800"><p className="text-lg font-semibold">284</p><p>TP · 56.8%</p></div>
-            <div className="col-start-4 row-start-3 rounded-lg bg-red-50 p-3 text-red-700"><p className="text-lg font-semibold">18</p><p>FP · 3.6%</p></div>
+            <div className="col-start-3 row-start-3 rounded-lg bg-teal-50 p-3 text-teal-800"><p className="text-lg font-semibold">—</p><p>TP · unavailable</p></div>
+            <div className="col-start-4 row-start-3 rounded-lg bg-red-50 p-3 text-red-700"><p className="text-lg font-semibold">—</p><p>FP · unavailable</p></div>
             <div className="col-start-2 row-start-4 flex items-center justify-end pr-2 font-medium text-muted-foreground">Normal</div>
-            <div className="col-start-3 row-start-4 rounded-lg bg-amber-50 p-3 text-amber-800"><p className="text-lg font-semibold">24</p><p>FN · 4.8%</p></div>
-            <div className="col-start-4 row-start-4 rounded-lg bg-blue-50 p-3 text-blue-800"><p className="text-lg font-semibold">174</p><p>TN · 34.8%</p></div>
+            <div className="col-start-3 row-start-4 rounded-lg bg-amber-50 p-3 text-amber-800"><p className="text-lg font-semibold">—</p><p>FN · unavailable</p></div>
+            <div className="col-start-4 row-start-4 rounded-lg bg-blue-50 p-3 text-blue-800"><p className="text-lg font-semibold">—</p><p>TN · unavailable</p></div>
           </div>
         </ChartCard>
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-[1fr_1.2fr]">
-        <ChartCard title="Model Confidence Distribution" description="Predictions by confidence range">
+        <ChartCard title="Model Confidence Distribution" description="No live confidence-distribution endpoint is available">
           <ResponsiveContainer width="100%" height={190}>
             <BarChart data={modelData.confidence} margin={{ top: 8, right: 0, left: -22, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -402,7 +388,7 @@ function ModelAnalytics() {
             <CardHeader className="flex-row items-center justify-between border-b bg-muted/20 px-5 py-4">
               <div>
                 <CardTitle className="text-sm font-medium">Model performance summary</CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground">Latest evaluation against verified case outcomes</p>
+                <p className="mt-1 text-xs text-muted-foreground">No verified evaluation against case outcomes is available</p>
               </div>
               <Button
                 variant="outline"
@@ -415,10 +401,10 @@ function ModelAnalytics() {
               </Button>
             </CardHeader>
             <CardContent className="grid gap-3 p-5 sm:grid-cols-2">
-              <div><p className="text-xs text-muted-foreground">Current accuracy</p><p className="mt-1 text-sm font-semibold">91.6%</p></div>
-              <div><p className="text-xs text-muted-foreground">High-confidence predictions</p><p className="mt-1 text-sm font-semibold">72.8%</p></div>
-              <div><p className="text-xs text-muted-foreground">False-positive rate</p><p className="mt-1 text-sm font-semibold">3.6%</p></div>
-              <div><p className="text-xs text-muted-foreground">Last model evaluation</p><p className="mt-1 text-sm font-semibold">24 Sep 2026</p></div>
+              <div><p className="text-xs text-muted-foreground">Current accuracy</p><p className="mt-1 text-sm font-semibold">Not available</p></div>
+              <div><p className="text-xs text-muted-foreground">High-confidence predictions</p><p className="mt-1 text-sm font-semibold">Not available</p></div>
+              <div><p className="text-xs text-muted-foreground">False-positive rate</p><p className="mt-1 text-sm font-semibold">Not available</p></div>
+              <div><p className="text-xs text-muted-foreground">Last model evaluation</p><p className="mt-1 text-sm font-semibold">Not available</p></div>
             </CardContent>
           </Card>
           {showDetails && (
@@ -426,7 +412,7 @@ function ModelAnalytics() {
               <CardHeader className="flex-row items-center justify-between border-b bg-muted/20 px-5 py-4">
                 <div>
                   <CardTitle className="text-sm font-medium">Evaluation details</CardTitle>
-                  <p className="mt-1 text-xs text-muted-foreground">How the current model is performing on verified outcomes</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Verified outcome records are not available</p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => setShowDetails(false)}>
                   Close
@@ -435,19 +421,19 @@ function ModelAnalytics() {
               <CardContent className="space-y-3 p-5 text-xs text-muted-foreground">
                 <div className="flex items-start justify-between gap-4">
                   <span>Evaluation sample</span>
-                  <span className="font-medium text-foreground">500 verified predictions</span>
+                  <span className="font-medium text-foreground">Not available</span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
                   <span>Fraud cases correctly identified</span>
-                  <span className="font-medium text-foreground">284 of 308</span>
+                  <span className="font-medium text-foreground">Not available</span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
                   <span>High-confidence threshold</span>
-                  <span className="font-medium text-foreground">80% or above</span>
+                  <span className="font-medium text-foreground">Not available</span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
                   <span>Recommended review</span>
-                  <span className="font-medium text-foreground">Re-evaluate after 30 days</span>
+                  <span className="font-medium text-foreground">Not available</span>
                 </div>
               </CardContent>
             </Card>
@@ -459,9 +445,7 @@ function ModelAnalytics() {
           <CardTitle className="text-sm font-medium">Conclusion</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground">
-          The model is performing reliably, identifying most fraud cases with strong precision
-          and recall. Its low false-positive rate and high-confidence prediction share support
-          using it as a prioritisation aid alongside investigator review.
+          Model-performance conclusions cannot be calculated without verified outcome labels. ATM risk inference is not a complaint-fraud outcome evaluation.
         </CardContent>
       </Card>
     </div>
@@ -470,12 +454,33 @@ function ModelAnalytics() {
 
 export default function Analytics() {
   const [section, setSection] = useState("case");
+  const [cases, setCases] = useState([]);
+  const [loadError, setLoadError] = useState("");
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    getDashboardData()
+      .then((data) => {
+        if (active) {
+          setCases(Array.isArray(data.cases) ? data.cases : []);
+          setDataLoaded(true);
+          setLoadError("");
+        }
+      })
+      .catch((error) => {
+        if (active) setLoadError(error.message || "Live analytics data is unavailable.");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="space-y-6 p-6">
       <PageHeader
         title="Analytics"
-        description="Monitor case activity and model performance."
+        description="Live case KPIs with clearly identified prototype charts; verified model-evaluation metrics are unavailable."
         actions={
           <Tabs value={section} onValueChange={setSection}>
             <TabsList className="h-10 rounded-lg border bg-muted/80 p-1 shadow-sm">
@@ -489,8 +494,14 @@ export default function Analytics() {
           </Tabs>
         }
       />
+      <Card className="border-amber-500/30 bg-amber-500/10">
+        <CardContent className="p-4 text-sm text-amber-950">
+          Case KPI cards use live PostgreSQL case records. The remaining case charts are bundled prototype/reference series. No measured model-performance metrics are available.
+        </CardContent>
+      </Card>
+      {loadError && <p role="alert" className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800">Live case KPIs unavailable: {loadError}</p>}
       <div key={section} className="animate-in fade-in-0 duration-300">
-        {section === "case" ? <CaseAnalytics /> : <ModelAnalytics />}
+        {section === "case" ? <CaseAnalytics cases={cases} dataLoaded={dataLoaded} /> : <ModelAnalytics />}
       </div>
     </div>
   );

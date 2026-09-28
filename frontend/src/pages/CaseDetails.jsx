@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Banknote, Check, Download, MapPin, Scale, Share2, Snowflake } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,8 @@ import { ACTION_STATUS, OPERATIONAL_ACTIONS, getActionStatusLabel } from "@/lib/
 import { useCaseActions } from "@/hooks/useCaseActions";
 import { cases, formatINR, muleChains, suspects } from "@/lib/investigationData";
 import { cn } from "@/lib/utils";
+import { getCase } from "@/lib/api";
+import FraudHeatmap from "@/components/command/FraudHeatmap";
 
 const priorityTone = {
   critical: "border-red-200 bg-red-500/10 text-red-600",
@@ -96,7 +98,28 @@ function flattenChain(node, result = []) {
 export default function CaseDetails() {
   const { caseId } = useParams();
   const navigate = useNavigate();
-  const caseItem = cases.find((item) => item.id === caseId);
+  const fallbackCase = cases.find((item) => item.id === caseId);
+  const [caseItem, setCaseItem] = useState(fallbackCase || null);
+  const [caseError, setCaseError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    getCase(caseId)
+      .then((data) => {
+        if (active) {
+          setCaseItem({ ...(fallbackCase || {}), ...data });
+          setCaseError("");
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setCaseError(error.message || "Live case information is unavailable.");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [caseId]);
 
   // Same persistent store the ATM Intelligence page writes to, so the operational
   // action statuses and the activity log always reflect confirmed actions.
@@ -112,8 +135,8 @@ export default function CaseDetails() {
   }
 
   const activity = formatActivity(caseItem.lastActivity);
-  const chain = flattenChain(muleChains[caseItem.muleChainId]);
-  const linkedSuspects = suspects.filter((suspect) => suspect.linkedCases.includes(caseItem.id));
+  const chain = flattenChain(caseItem.muleChainId ? muleChains[caseItem.muleChainId] : null);
+  const linkedSuspects = suspects.filter((suspect) => suspect.linkedCases?.includes(caseItem.id));
   const linkedAccounts = chain.slice(0, 6);
   const timeline = [
     ["14:20", "Fraud complaint received"],
@@ -122,6 +145,132 @@ export default function CaseDetails() {
     ["14:42", "ATM linked to case"],
     ["15:03", "Investigation escalated"],
   ];
+
+  if (caseItem.live_record) {
+    const candidates = Array.isArray(caseItem.same_city_atm_candidates)
+      ? caseItem.same_city_atm_candidates
+      : [];
+    const prototypeMappings = Array.isArray(caseItem.generated_prototype_mappings)
+      ? caseItem.generated_prototype_mappings
+      : [];
+    const nlp = caseItem.nlp_analysis;
+
+    return (
+      <div className="space-y-4 p-4 pt-6 sm:p-5 sm:pt-6 lg:p-6">
+        <Button variant="ghost" className="-ml-3 h-8 py-0 pl-8 pr-3 text-sm text-muted-foreground hover:text-foreground" onClick={() => navigate("/case-management")}>
+          <ArrowLeft className="h-4 w-4" /> Back to Cases
+        </Button>
+        <Card>
+          <CardContent className="grid gap-4 p-5 md:grid-cols-2">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Live PostgreSQL case</p>
+              <h1 className="mt-1 text-xl font-semibold">{caseItem.complaint_number || caseItem.case_number}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">{caseItem.case_number} · {caseItem.status || "Received"}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <InfoField label="Complainant" value={caseItem.victim || "—"} />
+              <InfoField label="Location" value={caseItem.location || "—"} />
+              <InfoField label="Bank" value={caseItem.bank_name || "—"} />
+              <InfoField label="Reported amount" value={caseItem.amount ? formatINR(caseItem.amount) : "—"} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className={cardHeaderClass}><CardTitle className={sectionTitleClass}>Complaint and NLP analysis</CardTitle></CardHeader>
+          <CardContent className={cn(cardBodyClass, "space-y-3 text-sm")}>
+            <p className="whitespace-pre-wrap">{caseItem.description || "No complaint description was stored."}</p>
+            {nlp ? (
+              <>
+                <p className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900">
+                  Extracted from submitted text; not independently verified evidence.
+                </p>
+                <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <InfoField label="Scam category" value={nlp.scam_category || "Not extracted"} />
+                  <InfoField label="Amount extracted from text" value={nlp.stolen_amount_inr == null ? "Not extracted" : formatINR(nlp.stolen_amount_inr)} />
+                  <InfoField label="Transfer mode" value={nlp.transfer_mode || "Not extracted"} />
+                  <InfoField label="Account identifier extracted" value={nlp.initial_mule_account || "Not extracted"} />
+                  <InfoField label="Text location coordinates" value={nlp.victim_lat == null ? "Not extracted" : `${nlp.victim_lat}, ${nlp.victim_lon}`} />
+                  <InfoField label="Extraction provenance" value={nlp.provenance || "complaint_text_nlp_extraction"} />
+                </dl>
+              </>
+            ) : <p className="text-muted-foreground">No NLP result is stored for this complaint.</p>}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className={cardHeaderClass}>
+            <CardTitle className={sectionTitleClass}>Same-city ATM candidates</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Candidates are catalog ATMs whose city exactly matches the complaint location. They are not predicted or confirmed cash-out locations.
+            </p>
+          </CardHeader>
+          <CardContent className={cn(cardBodyClass, "space-y-4")}>
+            {candidates.length ? (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {candidates.map((atm) => (
+                    <div key={atm.atm_id} className="rounded-md border p-3 text-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div><strong>{atm.atm_id}</strong><p className="text-xs text-muted-foreground">{atm.bank_name} · {atm.city}</p></div>
+                        <Badge variant="secondary">{atm.atm_risk_level || "Risk unavailable"}</Badge>
+                      </div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        ATM-risk classifier probability: {atm.atm_risk_confidence == null ? "Unavailable" : `${atm.atm_risk_confidence}%`}
+                      </p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {atm.confidence_type
+                          ? `${atm.confidence_type.replaceAll("_", " ")}.`
+                          : "No live ATM-risk inference is stored."}
+                      </p>
+                      <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                        {[
+                          ["Highway distance", atm.highway_distance],
+                          ["Lighting score", atm.lighting_score],
+                          ["CCTV coverage", atm.cctv_coverage],
+                          ["Historical fraud count", atm.historical_fraud_count],
+                          ["Withdrawal limit", atm.withdrawal_limit],
+                          ["Coordinates", atm.latitude == null ? "—" : `${atm.latitude}, ${atm.longitude}`],
+                        ].map(([label, value]) => (
+                          <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="font-medium">{value ?? "—"}</dd></div>
+                        ))}
+                      </dl>
+                    </div>
+                  ))}
+                </div>
+                <FraudHeatmap candidateAtms={candidates} />
+              </>
+            ) : <p className="text-sm text-muted-foreground">No ATM catalog city exactly matches this complaint location; no candidates were selected.</p>}
+            <p className="text-xs text-muted-foreground">
+              ATM-risk classification describes the ATM catalog record only. It does not establish a relationship to the complaint.
+            </p>
+          </CardContent>
+        </Card>
+
+        {prototypeMappings.length > 0 && (
+          <Card>
+            <CardHeader className={cardHeaderClass}><CardTitle className={sectionTitleClass}>Historical prototype mappings</CardTitle></CardHeader>
+            <CardContent className={cn(cardBodyClass, "space-y-3")}>
+              <p className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-900">
+                Imported/generated reference data — not verified cash-out events.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead><tr className="border-b text-xs text-muted-foreground"><th className="p-2">ATM</th><th className="p-2">Location</th><th className="p-2">Reference account</th><th className="p-2">Source</th></tr></thead>
+                  <tbody>{prototypeMappings.map((mapping) => (
+                    <tr key={mapping.atm_id} className="border-b last:border-0">
+                      <td className="p-2">{mapping.atm_id}</td><td className="p-2">{mapping.location || "—"}</td>
+                      <td className="p-2">{mapping.cashout_account || "—"}</td><td className="p-2">{mapping.label}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 p-4 pt-6 sm:p-5 sm:pt-6 lg:space-y-4 lg:p-6">
@@ -154,6 +303,11 @@ export default function CaseDetails() {
           </div>
         </CardContent>
       </Card>
+      {caseError && (
+        <p role="alert" className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800">
+          Showing local prototype details because live case data could not be loaded: {caseError}
+        </p>
+      )}
 
       {/* ------------------------------------------------ Overview + Quick Actions */}
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">

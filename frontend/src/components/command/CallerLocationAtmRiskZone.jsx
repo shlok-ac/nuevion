@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 import './caller-location-map.css'
 const COLORS = {
@@ -6,16 +6,6 @@ const COLORS = {
   MEDIUM: '#854d0e',
   HIGH: '#9a3412',
   CRITICAL: '#991b1b',
-}
-
-const HEAT_GRADIENT = {
-  0.00: '#1234a6',
-  0.20: '#176ee8',
-  0.40: '#11c7c9',
-  0.60: '#35d04f',
-  0.78: '#f4e62b',
-  0.90: '#ff8c1a',
-  1.00: '#ff2418',
 }
 
 function parseCsv(text, requireCoordinates = false) {
@@ -30,32 +20,27 @@ function parseCsv(text, requireCoordinates = false) {
     .map((r) => ({ ...r, risk_level: String(r.risk_level || '').toUpperCase() }))
 }
 
-function distanceKm(lat1, lng1, lat2, lng2) {
-  const toRad = (v) => (v * Math.PI) / 180
-  const R = 6371
-  const dLat = toRad(lat2 - lat1)
-  const dLng = toRad(lng2 - lng1)
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
-  return 2 * R * Math.asin(Math.sqrt(a))
-}
-
-function riskClass(level) {
-  return String(level || '').toLowerCase().replace('critical', 'critical')
-}
-
-export default function CityHeatmap({ caseId: controlledCaseId = '', investigationCases = [], onNearbyAtmsChange, onAtmSelect }) {
+export default function CityHeatmap({
+  caseId: controlledCaseId = '',
+  investigationCases = [],
+  atmRows = [],
+  atmLoading = false,
+  atmError = '',
+  onAtmSelect,
+}) {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
-  const layersRef = useRef({ markers: [], heat: null, caller: null, buffer: null, tower: null, nearby: [] })
+  const layersRef = useRef({ markers: [], caller: null, buffer: null, tower: null, nearby: [] })
   const [rows, setRows] = useState([])
   const [towers, setTowers] = useState([])
   const [cases, setCases] = useState([])
-  const [city, setCity] = useState('ALL')
-  const [risk, setRisk] = useState('ALL')
+  const [city] = useState('ALL')
+  const [risk] = useState('ALL')
   const [internalCaseId, setInternalCaseId] = useState('')
   const caseId = controlledCaseId || internalCaseId
-  const [bufferKm, setBufferKm] = useState(3)
+  const [bufferKm] = useState(3)
   const [error, setError] = useState('')
+  const [dataNotice, setDataNotice] = useState('')
   const [selectedAtmId, setSelectedAtmId] = useState('')
   const [leafletReady, setLeafletReady] = useState(() => Boolean(window.L))
 
@@ -110,38 +95,61 @@ export default function CityHeatmap({ caseId: controlledCaseId = '', investigati
   }, [leafletReady])
 
   useEffect(() => {
-    if (!leafletReady || typeof window.L?.heatLayer === 'function') return
-    const existing = document.querySelector('script[data-leaflet-heat-loader]')
-    if (existing) return
-    const script = document.createElement('script')
-    script.src = 'https://unpkg.com/leaflet.heat/dist/leaflet-heat.js'
-    script.async = true
-    script.dataset.leafletHeatLoader = 'true'
-    document.head.appendChild(script)
-  }, [leafletReady])
+    setRows(atmRows
+      .filter((row) =>
+        row.latitude != null &&
+        row.longitude != null &&
+        Number.isFinite(Number(row.latitude)) &&
+        Number.isFinite(Number(row.longitude))
+      )
+      .map((row) => ({
+        ...row,
+        risk_level: String(
+          row.atm_risk_inference?.risk_level ||
+          row.predicted_risk_level ||
+          row.risk_level ||
+          ''
+        ).toUpperCase(),
+      })))
+  }, [atmRows])
 
   useEffect(() => {
-    Promise.all([
-      fetch('/atm_predictions.csv').then((r) => { if (!r.ok) throw new Error('ATM CSV not found'); return r.text() }),
-      fetch('/cell_towers.csv').then((r) => { if (!r.ok) throw new Error('Tower CSV not found'); return r.text() }),
-      fetch('/caller_cases.csv').then((r) => { if (!r.ok) throw new Error('Caller CSV not found'); return r.text() }),
-    ])
-      .then(([atmText, towerText, caseText]) => {
-        setRows(parseCsv(atmText, true))
-        setTowers(parseCsv(towerText, true))
-        setCases(parseCsv(caseText, false))
-      })
-      .catch(() => setError('Could not load ATM, tower, or caller data.'))
+    let active = true
+    const loadReferenceOverlays = async () => {
+      const [towerResult, caseResult] = await Promise.allSettled([
+        fetch('/cell_towers.csv').then((response) => {
+          if (!response.ok) throw new Error('Tower CSV not found')
+          return response.text()
+        }),
+        fetch('/caller_cases.csv').then((response) => {
+          if (!response.ok) throw new Error('Caller CSV not found')
+          return response.text()
+        }),
+      ])
+      if (!active) return
+      if (towerResult.status === 'fulfilled') setTowers(parseCsv(towerResult.value, true))
+      if (caseResult.status === 'fulfilled') setCases(parseCsv(caseResult.value, false))
+      const missing = [
+        towerResult.status === 'rejected' && 'cell-tower',
+        caseResult.status === 'rejected' && 'caller-case',
+      ].filter(Boolean)
+      if (missing.length) {
+        setDataNotice(`Prototype caller/tower overlay unavailable: ${missing.join(' and ')} reference data could not be loaded.`)
+      }
+    }
+    loadReferenceOverlays()
+    return () => {
+      active = false
+    }
   }, [])
 
 
   useEffect(() => {
     const map = mapInstance.current
     const L = window.L
-    if (!map || !L || !rows.length) return
+    if (!map || !L) return
 
     layersRef.current.markers.forEach((marker) => marker.remove())
-    if (layersRef.current.heat) layersRef.current.heat.remove()
     layersRef.current.nearby.forEach((marker) => marker.remove())
     ;['caller', 'buffer', 'tower'].forEach((key) => {
       if (layersRef.current[key]) layersRef.current[key].remove()
@@ -149,27 +157,11 @@ export default function CityHeatmap({ caseId: controlledCaseId = '', investigati
     })
     layersRef.current.markers = []
     layersRef.current.nearby = []
-    layersRef.current.heat = null
 
     const filtered = rows.filter((r) =>
       (city === 'ALL' || r.city === city) &&
       (risk === 'ALL' || r.risk_level === risk)
     )
-
-    const points = filtered
-      .map((r) => [Number(r.latitude), Number(r.longitude), Math.max(0, Math.min(1, Number(r.risk_score) / 100))])
-      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng))
-
-    if (points.length && typeof L.heatLayer === 'function') {
-      layersRef.current.heat = L.heatLayer(points, {
-        radius: 42,
-        blur: 26,
-        maxZoom: 10,
-        max: 1,
-        minOpacity: 0.34,
-        gradient: HEAT_GRADIENT,
-      }).addTo(map)
-    }
 
     filtered.forEach((r) => {
       const lat = Number(r.latitude)
@@ -187,11 +179,11 @@ export default function CityHeatmap({ caseId: controlledCaseId = '', investigati
           <h3>${r.atm_id}</h3>
           <p><b>Bank:</b> ${r.bank_name}</p>
           <p><b>City:</b> ${r.city}</p>
-          <p><b>Risk score:</b> ${Number(r.risk_score).toFixed(2)}</p>
-          <p><b>Risk level:</b> ${r.risk_level}</p>
-          <p><b>Predicted:</b> ${r.predicted_risk_level}</p>
-          <p><b>Confidence:</b> ${Number(r.prediction_confidence).toFixed(1)}%</p>
-          <p><b>Recommended action:</b> ${['HIGH', 'CRITICAL'].includes(String(r.risk_level).toUpperCase()) ? 'Prioritize patrol frequency and field verification' : 'Continue routine monitoring'}</p>
+          <p><b>Stored risk score:</b> ${r.risk_score == null ? '—' : r.risk_score}</p>
+          <p><b>ATM risk classification:</b> ${r.atm_risk_inference?.risk_level || 'Not inferred for this ATM'}</p>
+          <p><b>Classifier class probability (not calibrated):</b> ${r.atm_risk_inference?.prediction_confidence == null ? '—' : `${r.atm_risk_inference.prediction_confidence}%`}</p>
+          <p>${r.atm_risk_inference?.confidence_type || ''}</p>
+          <p>ATM risk only; not a complaint-to-ATM link or cash-out probability.</p>
         </div>
       `).addTo(map)
 
@@ -258,9 +250,11 @@ export default function CityHeatmap({ caseId: controlledCaseId = '', investigati
             <div class="atm-popup">
               <h3>${r.atm_id} · Inside caller zone</h3>
               <p><b>Bank:</b> ${r.bank_name}</p>
-              <p><b>Risk score:</b> ${Number(r.risk_score).toFixed(2)}</p>
-              <p><b>Risk level:</b> ${r.risk_level}</p>
-              <p><b>Recommended action:</b> ${['HIGH', 'CRITICAL'].includes(String(r.risk_level).toUpperCase()) ? 'Prioritize patrol frequency and field verification' : 'Continue routine monitoring'}</p>
+                <p><b>Stored risk score:</b> ${r.risk_score == null ? '—' : r.risk_score}</p>
+                <p><b>ATM risk classification:</b> ${r.atm_risk_inference?.risk_level || 'Not inferred for this ATM'}</p>
+                <p><b>Classifier class probability (not calibrated):</b> ${r.atm_risk_inference?.prediction_confidence == null ? '—' : `${r.atm_risk_inference.prediction_confidence}%`}</p>
+                <p>${r.atm_risk_inference?.confidence_type || ''}</p>
+                <p>Caller/tower and incident overlays are prototype reference data; no cash-out relationship is established.</p>
             </div>
           `).addTo(map)
           marker._atmId = r.atm_id
@@ -278,7 +272,7 @@ export default function CityHeatmap({ caseId: controlledCaseId = '', investigati
       const bounds = L.latLngBounds(filtered.map((r) => [Number(r.latitude), Number(r.longitude)]))
       map.fitBounds(bounds.pad(0.1), { maxZoom: 6, animate: false })
     }
-  }, [rows, towers, cases, investigationCases, caseId, bufferKm, city, risk])
+  }, [leafletReady, rows, towers, cases, investigationCases, caseId, bufferKm, city, risk])
 
   useEffect(() => {
     layersRef.current.nearby.forEach((marker) => {
@@ -295,28 +289,16 @@ export default function CityHeatmap({ caseId: controlledCaseId = '', investigati
 
   const selectedInvestigationCase = investigationCases.find((c) => c.id === caseId)
   const selectedCallerCase = cases.find((c) => c.case_id === caseId) || (selectedInvestigationCase
-    ? cases[investigationCases.findIndex((c) => c.id === selectedInvestigationCase.id)]
-    : null) || cases[0]
-  const effectiveCallerCaseId = selectedCallerCase?.case_id || caseId
-  const selectedCase = cases.find((c) => c.case_id === effectiveCallerCaseId) || selectedCallerCase
-  const selectedTower = selectedCase && towers.find((t) => t.tower_id === selectedCase.tower_id)
-  const towerLat = Number(selectedTower?.latitude)
-  const towerLng = Number(selectedTower?.longitude)
-
-  const nearbyAtms = useMemo(() => (Number.isFinite(towerLat) && Number.isFinite(towerLng)
-    ? rows.filter((r) => (city === 'ALL' || r.city === city)).filter((r) => {
-        const lat = Number(r.latitude)
-        const lng = Number(r.longitude)
-        return Number.isFinite(lat) && Number.isFinite(lng) && distanceKm(towerLat, towerLng, lat, lng) <= bufferKm
-      }).sort((a, b) => Number(b.risk_score) - Number(a.risk_score))
-    : []), [rows, city, towerLat, towerLng, bufferKm])
-
-  useEffect(() => {
-    if (onNearbyAtmsChange) onNearbyAtmsChange(nearbyAtms)
-  }, [nearbyAtms, onNearbyAtmsChange])
+  ? cases[investigationCases.findIndex((c) => c.id === selectedInvestigationCase.id)]
+  : null) || cases[0]
+  const selectedCase = cases.find((c) => c.case_id === selectedCallerCase?.case_id) || selectedCallerCase
 
   return (
     <div className="card city-map-card caller-map-card">
+      {dataNotice && <div className="city-map-error">{dataNotice}</div>}
+      {atmLoading && <div className="city-map-error">Loading live ATM catalog…</div>}
+      {atmError && <div role="alert" className="city-map-error">Live ATM catalog unavailable: {atmError}</div>}
+      {!atmLoading && !atmError && rows.length === 0 && <div className="city-map-error">No ATM catalog records with valid coordinates are available to map.</div>}
       {error ? (
         <div className="city-map-error">{error}</div>
       ) : (

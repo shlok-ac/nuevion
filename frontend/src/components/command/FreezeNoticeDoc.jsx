@@ -6,8 +6,8 @@ const FreezeNoticeDoc = forwardRef(function FreezeNoticeDoc({ data: d }, ref) {
     <div ref={ref} id="freeze-notice-print" className="mx-auto max-w-[800px] bg-white p-10 text-[13px] leading-relaxed text-slate-900">
       <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3">
         <div>
-          <p className="text-xs uppercase tracking-wider text-slate-500">Government of India · Ministry of Home Affairs</p>
-          <h1 className="mt-1 text-xl font-bold">Cyber Crime Investigation Unit</h1>
+          <p className="text-xs font-bold uppercase tracking-wider text-red-700">Prototype only · not an issued notice</p>
+          <h1 className="mt-1 text-xl font-bold">Cyber Fraud Command Center</h1>
           <p className="text-xs">{d.station}</p>
         </div>
         <div className="text-right text-xs">
@@ -22,15 +22,14 @@ const FreezeNoticeDoc = forwardRef(function FreezeNoticeDoc({ data: d }, ref) {
         <p>{d.bank}</p>
         <p>{d.branch}</p>
         <p className="mt-1 text-xs text-slate-600">
-          Subject: Direction for freezing of bank account under Section 106, Bharatiya Nagarik Suraksha Sanhita, 2023 — Reg.
+          Subject: Prototype notice preview — not for service or account action.
         </p>
       </div>
 
-      <p className="mt-4">Sir/Madam,</p>
+      <p className="mt-4 font-bold text-red-700">Demonstration preview only. This document is not legal advice, an order, or a communication to a bank.</p>
       <p className="mt-3">
-        Pursuant to FIR {d.firNo} registered at {d.station}, the undersigned is investigating a cyber-enabled financial fraud
-        wherein an amount of <strong>{formatINR(d.amount)}</strong> has been traced to the following account held with your
-        bank, identified as proceeds of crime:
+        The values below are case details supplied by the application or entered for preview. They do not establish that funds
+        were traced to this account, that an account is involved in wrongdoing, or that a freeze has been authorized.
       </p>
 
       <table className="mt-4 w-full border border-slate-400 text-[12px]">
@@ -38,27 +37,14 @@ const FreezeNoticeDoc = forwardRef(function FreezeNoticeDoc({ data: d }, ref) {
           <Row k="Account Holder" v={d.accountHolder} />
           <Row k="Account Number" v={d.account} />
           <Row k="Bank / Branch" v={`${d.bank}, ${d.branch}`} />
-          <Row k="Amount to be frozen" v={formatINR(d.amount)} />
+          <Row k="Reported amount (not a freeze instruction)" v={d.amount ? formatINR(d.amount) : "Not provided"} />
           <Row k="Linked FIR" v={d.firNo} />
           <Row k="Victim" v={d.victim} />
         </tbody>
       </table>
 
-      <p className="mt-4">
-        In exercise of the powers conferred under <strong>Section 106 of the Bharatiya Nagarik Suraksha Sanhita, 2023</strong>{" "}
-        and the provisions of the Information Technology Act, 2000 read with the relevant RBI / cybercrime guidelines, you are
-        hereby directed to <strong>place a lien / freeze</strong> on the above account and all linked accounts with immediate
-        effect, and to <strong>not permit any debit, transfer or withdrawal</strong> therefrom until further written order
-        from this office.
-      </p>
-      <p className="mt-3">
-        The freeze shall be effected <strong>silently</strong> — the account holder shall continue to see the available balance
-        in the customer-facing application without any indication that the account is under restraint, and outward
-        transactions shall remain in a perpetual &quot;processing&quot; state pending our further intimation.
-      </p>
-      <p className="mt-3">
-        You are requested to acknowledge receipt and confirm compliance within 2 (two) hours, and to share the account
-        statement for the preceding 90 days along with KYC particulars of the holder.
+      <p className="mt-4 rounded border border-red-300 bg-red-50 p-3 font-semibold text-red-800">
+        No account action is requested by this prototype. Do not serve, send, or rely on this preview as an official notice.
       </p>
 
       <div className="mt-10 flex justify-end">
@@ -69,8 +55,7 @@ const FreezeNoticeDoc = forwardRef(function FreezeNoticeDoc({ data: d }, ref) {
         </div>
       </div>
       <p className="mt-6 border-t pt-2 text-[10px] text-slate-500">
-        This is a system-generated notice from the CyberFraud Command Center. Unauthorised disclosure to the account holder
-        may prejudice the investigation.
+        Prototype preview generated from application data. It has not been reviewed, authorized, or sent by an investigating authority.
       </p>
     </div>
   );

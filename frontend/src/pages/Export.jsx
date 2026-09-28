@@ -4,12 +4,10 @@ import EvidenceReportExport from "@/components/command/EvidenceReportExport";
 import PageHeader from "@/components/command/PageHeader";
 import { FileText, FolderArchive } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import { cases } from "@/lib/investigationData";
 
 export default function Export() {
   const [searchParams] = useSearchParams();
-  const requestedCaseId = searchParams.get("case");
-  const initialCaseId = cases.some((item) => item.id === requestedCaseId) ? requestedCaseId : undefined;
+  const initialCaseId = searchParams.get("case") || undefined;
   return (
     <div className="space-y-6 p-6">
       <PageHeader title="Export" description="Generate and export case reports and evidence reports." />

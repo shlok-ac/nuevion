@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
+import { createComplaint } from "../../../lib/api";
 import "./ReportFraud.css";
 
 const steps = [
@@ -15,6 +16,8 @@ export default function ReportFraud() {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -748,10 +751,10 @@ const generatePDF = (complaintNumber, complaint) => {
 };
 
 
-const handleSubmit = (event) => {
+const handleSubmit = async (event) => {
   event.preventDefault();
-
-const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+  setIsSubmitting(true);
+  setSubmitError("");
 
   /*
    * IMPORTANT:
@@ -767,34 +770,35 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
       type: file.type,
     }));
 
-  const complaint = {
-    ...formData,
+  try {
+    const result = await createComplaint({
+      ...formData,
+      evidence: evidenceMetadata,
+      fraudAmount: String(formData.fraudAmount || "").trim(),
+    });
+    const complaintNumber = result?.complaint?.complaint_number;
+    if (!complaintNumber) {
+      throw new Error("The backend did not return a complaint number.");
+    }
 
-    // Store metadata instead of File objects.
-    evidence: evidenceMetadata,
+    const complaint = {
+      ...formData,
+      evidence: evidenceMetadata,
+      fraudAmount: String(formData.fraudAmount || "").trim(),
+      complaintNumber,
+      status: result.case?.status || "Received",
+      submittedAt: result.complaint?.created_at || new Date().toISOString(),
+      nlp: result.nlp,
+      graph: result.graph,
+    };
 
-    // Keep the amount exactly as entered.
-    fraudAmount: String(
-      formData.fraudAmount || ""
-    ).trim(),
-
-    complaintNumber,
-
-    status: "Received",
-
-    submittedAt:
-      new Date().toISOString(),
-  };
-
-  localStorage.setItem(
-    "nirikshanLatestComplaint",
-    JSON.stringify(complaint)
-  );
-
-
-  navigate(
-    `/complaint/${complaintNumber}/confirmation`
-  );
+    localStorage.setItem("nirikshanLatestComplaint", JSON.stringify(complaint));
+    navigate(`/complaint/${complaintNumber}/confirmation`);
+  } catch (error) {
+    setSubmitError(error.message || "Complaint submission failed. Please try again.");
+  } finally {
+    setIsSubmitting(false);
+  }
 };
 
   return (
@@ -1415,12 +1419,20 @@ const complaintNumber = `CYB-${new Date().getFullYear()}-${Math.floor(10000 + Ma
   )}
 
   {currentStep === 4 && (
-    <button
-      type="submit"
-      className="submit-button"
-    >
-      Submit Complaint
-    </button>
+    <>
+      {submitError && (
+        <p role="alert" className="submit-error">
+          {submitError}
+        </p>
+      )}
+      <button
+        type="submit"
+        className="submit-button"
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? "Submitting..." : "Submit Complaint"}
+      </button>
+    </>
   )}
 
 </div>

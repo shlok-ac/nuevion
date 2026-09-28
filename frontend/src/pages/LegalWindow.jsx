@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,49 +7,102 @@ import CaseSelector from "@/components/command/CaseSelector";
 import { Printer, Download, FileText } from "lucide-react";
 import FreezeNoticeDoc from "@/components/command/FreezeNoticeDoc";
 import PageHeader from "@/components/command/PageHeader";
-import { cases } from "@/lib/investigationData";
+import { getCase, getDashboardData } from "@/lib/api";
 import { useLocation, useSearchParams } from "react-router-dom";
 
 export default function LegalWindow() {
   const { state } = useLocation();
   const [searchParams] = useSearchParams();
-  const initialCase = cases.find((c) => c.id === searchParams.get("case"))
-    ?? cases.find((c) => c.muleChainId === state?.caseId)
-    ?? cases[0];
-  const [caseId, setCaseId] = useState(initialCase.id);
+  const requestedCaseId = searchParams.get("case") || state?.caseId || "";
+  const [cases, setCases] = useState([]);
+  const [caseId, setCaseId] = useState("");
+  const [activeCase, setActiveCase] = useState(null);
+  const [loadError, setLoadError] = useState("");
   const noticeRef = useRef(null);
 
-  const activeCase = cases.find((c) => c.id === caseId);
   const [form, setForm] = useState({
-    officerName: "Nodal Officer (Anti-Fraud)",
-    refNo: `CCU/${activeCase.id}/106/${new Date().getFullYear()}`,
+    officerName: "",
+    refNo: "",
     date: new Date().toLocaleDateString("en-IN"),
-    station: activeCase.station,
-    bank: state?.bank ?? activeCase.bank,
-    branch: activeCase.branch,
-    account: state?.account ?? activeCase.account,
-    accountHolder: "—",
-    amount: activeCase.amount,
-    firNo: activeCase.firNo,
-    officer: activeCase.officer,
-    victim: activeCase.victim,
+    station: "",
+    bank: "",
+    branch: "",
+    account: state?.account || "",
+    accountHolder: "",
+    amount: "",
+    firNo: "",
+    officer: "",
+    victim: "",
   });
+
+  useEffect(() => {
+    let active = true;
+    getDashboardData()
+      .then((data) => {
+        if (!active) return;
+        const liveCases = (data.cases || []).map((item) => ({
+          ...item,
+          id: String(item.id),
+          title: item.description || item.complaint_number || item.case_number,
+        }));
+        setCases(liveCases);
+        const selected = liveCases.find((item) =>
+          [item.id, String(item.complaint_id), item.case_number].includes(String(requestedCaseId))
+        );
+        setCaseId(selected?.id || liveCases[0]?.id || "");
+        setLoadError("");
+      })
+      .catch((error) => {
+        if (active) setLoadError(error.message || "Live cases are unavailable.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [requestedCaseId]);
+
+  useEffect(() => {
+    if (!caseId) return undefined;
+    let active = true;
+    setActiveCase(null);
+    getCase(caseId)
+      .then((data) => {
+        if (!active) return;
+        const liveCase = {
+          ...data,
+          id: String(data.id),
+          title: data.title || data.case_number || data.complaint_number,
+          bank: data.bank_name || "",
+          branch: data.branch || data.location || "",
+          account: data.account || "",
+          victim: data.victim || "",
+        };
+        setActiveCase(liveCase);
+        setForm((current) => ({
+          ...current,
+          bank: liveCase.bank,
+          branch: liveCase.branch,
+          account: liveCase.account,
+          amount: liveCase.amount ?? "",
+          victim: liveCase.victim,
+          station: "",
+          firNo: "",
+          officer: "",
+          officerName: "",
+          accountHolder: "",
+          refNo: "",
+        }));
+        setLoadError("");
+      })
+      .catch((error) => {
+        if (active) setLoadError(error.message || "Live case details are unavailable.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [caseId]);
 
   const onCaseChange = (id) => {
     setCaseId(id);
-    const c = cases.find((x) => x.id === id);
-    setForm((f) => ({
-      ...f,
-      refNo: `CCU/${c.id}/106/${new Date().getFullYear()}`,
-      station: c.station,
-      bank: c.bank,
-      branch: c.branch,
-      account: c.account,
-      amount: c.amount,
-      firNo: c.firNo,
-      officer: c.officer,
-      victim: c.victim,
-    }));
   };
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -58,7 +111,7 @@ export default function LegalWindow() {
 
   const handleDownload = async () => {
     const el = noticeRef.current;
-    if (!el) return;
+    if (!el || !activeCase) return;
     const { default: html2canvas } = await import("html2canvas");
     const { jsPDF } = await import("jspdf");
     const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff" });
@@ -74,7 +127,7 @@ export default function LegalWindow() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Legal Window — §106 BNSS Freeze Notice"
-        description="One-click generation of the freeze notice addressed to bank nodal officers."
+        description="Prototype notice preview using supported live case fields; unsupported legal details remain blank."
       />
 
       <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
@@ -89,22 +142,26 @@ export default function LegalWindow() {
               <Label>Case</Label>
               <CaseSelector cases={cases} value={caseId} onValueChange={onCaseChange} />
             </div>
+            {loadError && <p role="alert" className="text-xs text-amber-800">{loadError}</p>}
+            <p className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-950">
+              Prototype only — no notice is issued or sent. FIR, officer, station, and account-holder details are not available from the case API.
+            </p>
             <Field label="Nodal officer" value={form.officerName} onChange={set("officerName")} />
             <Field label="Bank" value={form.bank} onChange={set("bank")} />
             <Field label="Branch" value={form.branch} onChange={set("branch")} />
             <Field label="Account number" value={form.account} onChange={set("account")} />
             <Field label="Account holder" value={form.accountHolder} onChange={set("accountHolder")} />
-            <Field label="Amount to freeze (₹)" type="number" value={form.amount} onChange={set("amount")} />
+            <Field label="Reported amount (₹)" type="number" value={form.amount} onChange={set("amount")} />
             <Field label="FIR No." value={form.firNo} onChange={set("firNo")} />
             <Field label="Investigating officer" value={form.officer} onChange={set("officer")} />
             <Field label="Station" value={form.station} onChange={set("station")} />
             <Field label="Reference No." value={form.refNo} onChange={set("refNo")} />
             <Field label="Date" value={form.date} onChange={set("date")} />
             <div className="flex gap-2 pt-2">
-              <Button onClick={handlePrint} className="flex-1">
+              <Button onClick={handlePrint} className="flex-1" disabled={!activeCase}>
                 <Printer className="h-4 w-4" /> Print
               </Button>
-              <Button onClick={handleDownload} variant="outline" className="flex-1">
+              <Button onClick={handleDownload} variant="outline" className="flex-1" disabled={!activeCase}>
                 <Download className="h-4 w-4" /> PDF
               </Button>
             </div>

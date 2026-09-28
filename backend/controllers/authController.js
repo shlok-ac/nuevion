@@ -6,6 +6,12 @@ const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
+        if (!process.env.JWT_SECRET) {
+            return res.status(503).json({
+                message: "Authentication is not configured"
+            });
+        }
+
         if (!email || !password) {
             return res.status(400).json({
                 message: "Email and password are required"
@@ -13,8 +19,8 @@ const login = async (req, res) => {
         }
 
         const result = await pool.query(
-            "SELECT * FROM users WHERE email = $1",
-            [email]
+            "SELECT id, name, email, password_hash, role FROM users WHERE email = $1",
+            [String(email).trim().toLowerCase()]
         );
 
         if (result.rows.length === 0) {
@@ -24,12 +30,7 @@ const login = async (req, res) => {
         }
 
         const user = result.rows[0];
-
-        const passwordMatch = await bcrypt.compare(
-            password,
-            user.password_hash
-        );
-
+        const passwordMatch = await bcrypt.compare(password, user.password_hash);
         if (!passwordMatch) {
             return res.status(401).json({
                 message: "Invalid email or password"
@@ -61,8 +62,10 @@ const login = async (req, res) => {
     } catch (error) {
         console.error("Login error:", error.message);
 
-        res.status(500).json({
-            message: "Login failed"
+        res.status(error.code === "ECONNREFUSED" || error.code === "28P01" ? 503 : 500).json({
+            message: error.code === "ECONNREFUSED" || error.code === "28P01"
+                ? "Authentication database is unavailable"
+                : "Login failed"
         });
     }
 };

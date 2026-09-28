@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,11 +15,10 @@ import CaseSelector from "@/components/command/CaseSelector";
 import BankAppSim from "@/components/command/BankAppSim";
 import AtmSim from "@/components/command/AtmSim";
 import PageHeader from "@/components/command/PageHeader";
-import { cases } from "@/lib/investigationData";
+import { getCase, getDashboardData } from "@/lib/api";
 import { Snowflake, Check, Eye, EyeOff, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const scenarioFromStatus = { frozen: "freeze", active: "normal", monitoring: "normal" };
 const modes = [
   { value: "normal", label: "No freeze", icon: ShieldX },
   { value: "freeze", label: "Silent freeze", icon: Snowflake },
@@ -40,11 +39,64 @@ const FREEZE_DONE_CLASS = "h-9 border border-transparent px-3 bg-emerald-500/10 
 
 export default function FreezeSimulation() {
   const [searchParams] = useSearchParams();
-  const requestedCaseId = searchParams.get("case");
-  const initialCase = cases.find((item) => item.id === requestedCaseId) ?? cases[0];
-  const [caseId, setCaseId] = useState(initialCase.id);
-  const [mode, setMode] = useState(scenarioFromStatus[initialCase.status] ?? "normal");
-  const c = cases.find((x) => x.id === caseId);
+  const requestedCaseId = searchParams.get("case") || "";
+  const [cases, setCases] = useState([]);
+  const [caseId, setCaseId] = useState("");
+  const [caseRecord, setCaseRecord] = useState(null);
+  const [loadError, setLoadError] = useState("");
+  const [mode, setMode] = useState("normal");
+
+  useEffect(() => {
+    let active = true;
+    getDashboardData()
+      .then((data) => {
+        if (!active) return;
+        const liveCases = (data.cases || []).map((item) => ({
+          ...item,
+          id: String(item.id),
+          title: item.description || item.complaint_number || item.case_number,
+        }));
+        setCases(liveCases);
+        const selected = liveCases.find((item) =>
+          [item.id, String(item.complaint_id), item.case_number].includes(String(requestedCaseId))
+        );
+        setCaseId(selected?.id || liveCases[0]?.id || "");
+        setLoadError("");
+      })
+      .catch((error) => {
+        if (active) setLoadError(error.message || "Live cases are unavailable.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [requestedCaseId]);
+
+  useEffect(() => {
+    if (!caseId) return undefined;
+    let active = true;
+    setCaseRecord(null);
+    getCase(caseId)
+      .then((data) => {
+        if (active) {
+          setCaseRecord({
+            ...data,
+            id: String(data.id),
+            bank: data.bank_name || "—",
+            branch: data.branch || data.location || "—",
+            account: data.account || "—",
+            amount: data.amount,
+          });
+          setLoadError("");
+        }
+      })
+      .catch((error) => {
+        if (active) setLoadError(error.message || "Live case details are unavailable.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [caseId]);
+  const c = caseRecord || { id: caseId || "—", bank: "—", branch: "—", account: "—", amount: null };
 
   /**
    * Prototype-only freeze state, keyed by case id so the flag can never leak from
@@ -61,9 +113,7 @@ export default function FreezeSimulation() {
 
   const onCaseChange = (id) => {
     setCaseId(id);
-    const cs = cases.find((x) => x.id === id);
-    // Returning to a case we already froze must still show the frozen simulation.
-    setMode(frozenCases[id] ? "freeze" : scenarioFromStatus[cs.status] ?? "normal");
+    setMode(frozenCases[id] ? "freeze" : "normal");
   };
 
   const confirmFreeze = () => {
@@ -75,7 +125,7 @@ export default function FreezeSimulation() {
   const reality =
     mode === "freeze"
       ? {
-          title: "Silent lien ACTIVE",
+          title: "Freeze simulation active",
           tone: "text-emerald-600",
           badge: "bg-emerald-500/10 text-emerald-600",
           card: "border-emerald-200",
@@ -84,8 +134,8 @@ export default function FreezeSimulation() {
           glow: "bg-emerald-500/20",
           rows: [
             ["Account", `${c.account} (${c.bank})`],
-            ["Debits", "Blocked silently"],
-            ["Credits", "Permitted (trap incoming funds)"],
+            ["Debits", "Blocked in simulation only"],
+            ["Credits", "Permitted in simulation only"],
             ["Customer alert", "None"],
             ["Balance shown to holder", "Normal"],
           ],
@@ -101,7 +151,7 @@ export default function FreezeSimulation() {
           glow: "bg-red-500/20",
           rows: [
             ["Account", `${c.account} (${c.bank})`],
-            ["Debits", "Declined by bank"],
+            ["Debits", "Declined in simulation"],
             ["Customer alert", "Decline error shown"],
             ["Balance shown to holder", "Normal"],
           ],
@@ -116,8 +166,8 @@ export default function FreezeSimulation() {
           glow: "bg-blue-500/20",
           rows: [
             ["Account", `${c.account} (${c.bank})`],
-            ["Debits", "Permitted"],
-            ["Credits", "Permitted"],
+            ["Debits", "Permitted in simulation"],
+            ["Credits", "Permitted in simulation"],
             ["Customer alert", "None"],
             ["Balance shown to holder", "Normal"],
           ],
@@ -127,19 +177,20 @@ export default function FreezeSimulation() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Silent Bank Freeze Simulation"
-        description="Case-specific, real-time preview of what the suspect experiences."
+        description="Prototype-only bank and ATM behavior simulation; no real account is frozen or changed."
       />
 
       <div className="flex flex-wrap items-center gap-4">
         <CaseSelector cases={cases} value={caseId} onValueChange={onCaseChange} className="w-72 h-10 py-0" />
+        {loadError && <p role="alert" className="text-sm text-amber-800">{loadError}</p>}
         <Button
           type="button"
           onClick={() => setConfirmOpen(true)}
-          disabled={isFrozen}
+          disabled={!caseRecord || isFrozen}
           className={isFrozen ? FREEZE_DONE_CLASS : FREEZE_ACTION_CLASS}
         >
           {isFrozen ? <Check /> : <Snowflake />}
-          {isFrozen ? "Mule Account Frozen" : "Freeze Mule Account"}
+          {isFrozen ? "Simulation Active" : "Run Freeze Simulation"}
         </Button>
         {/* Scenario segmented control.
             The whole row is h-10 so the track is finally tall enough to breathe:
@@ -274,7 +325,7 @@ export default function FreezeSimulation() {
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-red-600">
                 <Snowflake className="h-4 w-4" />
               </span>
-              <DialogTitle>Freeze Mule Account?</DialogTitle>
+              <DialogTitle>Run Freeze Simulation?</DialogTitle>
             </div>
             <DialogDescription>
               {c.bank} · {c.branch} · {c.id}
@@ -285,7 +336,7 @@ export default function FreezeSimulation() {
             {[
               ["Case", c.id],
               ["Account", c.account],
-              ["Account Type", "Mule Account"],
+              ["Account Type", "Complaint-reported account"],
             ].map(([label, value]) => (
               <div key={label}>
                 <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">{label}</dt>
@@ -309,7 +360,7 @@ export default function FreezeSimulation() {
             </Button>
             <Button type="button" className={FREEZE_ACTION_CLASS} onClick={confirmFreeze}>
               <Snowflake />
-              Confirm Freeze
+              Confirm Simulation
             </Button>
           </DialogFooter>
         </DialogContent>
