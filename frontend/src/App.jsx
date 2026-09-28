@@ -5,6 +5,7 @@ import ScrollToTop from "./components/ScrollToTop";
 
 import CommandLayout from "@/components/command/CommandLayout";
 import CommandDashboard from "@/pages/CommandDashboard";
+import VoiceTriagePage from "@/pages/VoiceTriagePage";
 import CaseManagement from "@/pages/CaseManagement";
 import CaseDetails from "@/pages/CaseDetails";
 import MoneyTrail from "@/pages/MoneyTrail";
@@ -37,6 +38,7 @@ function App() {
           }
         >
           <Route path="/" element={<CommandDashboard />} />
+          <Route path="/voice-triage" element={<VoiceTriagePage />} />
           <Route path="/case-management" element={<CaseManagement />} />
           <Route path="/cases/:caseId" element={<CaseDetails />} />
           <Route path="/atm-intelligence" element={<ATMIntelligence />} />
