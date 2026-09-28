@@ -43,4 +43,35 @@ const analyzeComplaintText = (text) => new Promise((resolve, reject) => {
     child.stdin.end(JSON.stringify({ text }));
 });
 
-module.exports = { analyzeComplaintText };
+const processVoiceComplaint = (audioFilePath, sourceLang = "hi") => {
+  return new Promise((resolve, reject) => {
+    const path = require("path");
+    const { spawn } = require("child_process");
+    const scriptPath = path.join(__dirname, "..", "nlp_engine.py");
+    const pyProcess = spawn("python3", [scriptPath, audioFilePath, sourceLang]);
+
+    let stdoutData = "";
+    let stderrData = "";
+
+    pyProcess.stdout.on("data", (chunk) => {
+      stdoutData += chunk.toString();
+    });
+
+    pyProcess.stderr.on("data", (chunk) => {
+      stderrData += chunk.toString();
+    });
+
+    pyProcess.on("close", (code) => {
+      if (code !== 0) {
+        return reject(new Error(`NLP Engine exited with code ${code}: ${stderrData}`));
+      }
+      try {
+        const parsed = JSON.parse(stdoutData.trim());
+        resolve(parsed);
+      } catch (err) {
+        reject(new Error(`Failed to parse NLP JSON output: ${stdoutData}`));
+      }
+    });
+  });
+};
+module.exports = { analyzeComplaintText, processVoiceComplaint };
