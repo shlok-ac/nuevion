@@ -499,3 +499,9 @@ CMP100497,2026-06-09,04:41:07,Maharashtra,Nagpur,Nagpur Zone 3,Unauthorized Upi 
 CMP100498,2026-06-14,23:02:07,Delhi,Delhi,Delhi Zone 4,Digital Arrest Scam,28.551826,77.192657,MEDIUM,SIMULATED_FOR_SIH_PROTOTYPE
 CMP100499,2026-06-01,17:13:07,Maharashtra,Pune,Pune Zone 5,Unauthorized Upi Transaction,18.466109,73.806551,MEDIUM,SIMULATED_FOR_SIH_PROTOTYPE
 CMP100500,2026-06-16,03:50:07,Maharashtra,Nagpur,Nagpur Zone 1,Fake Customer Care Fraud,21.09354,79.151682,MEDIUM,SIMULATED_FOR_SIH_PROTOTYPE
+CYB-2026-81295,2026-09-29,10:59:12,Maharashtra,Pune,Pune Zone 4,Pipeline Verification Complaint,18.466109,73.806551,MEDIUM,SIMULATED_FOR_SIH_PROTOTYPE
+CYB-2026-19168,2026-09-29,10:59:12,Maharashtra,Pune,Pune Zone 5,Auto Sync Verification Complaint,18.466109,73.806551,MEDIUM,SIMULATED_FOR_SIH_PROTOTYPE
+CYB-2026-61346,2026-09-29,10:59:16,Delhi,Delhi,Delhi Zone 1,Triage Sync Verification,28.551826,77.192657,MEDIUM,SIMULATED_FOR_SIH_PROTOTYPE
+1930-2026-5728,2026-09-29,10:59:19,Maharashtra,Pune,Pune Zone 2,Helpline 1930 Triage: Financial_fraud,18.466109,73.806551,MEDIUM,SIMULATED_FOR_SIH_PROTOTYPE
+CYB-2026-78394,2026-09-29,,Maharashtra,Pune,Pune Zone 4,"I Am Reporting An Unauthorized Transaction From My Bank Account That Resulted In A Financial Loss. I Did Not Authorize Or Initiate This Transaction And Request That The Incident Be Investigated, Including Tracing The Transferred Funds And Identifying The Accounts And Withdrawal Locations Involved",18.466109,73.806551,MEDIUM,SIMULATED_FOR_SIH_PROTOTYPE
+CYB-2026-19280,2026-09-29,,Maharashtra,Mumbai,Mumbai Zone 1,I Was Scammed,19.06407,72.878918,MEDIUM,SIMULATED_FOR_SIH_PROTOTYPE

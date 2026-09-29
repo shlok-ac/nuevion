@@ -1,12 +1,15 @@
 # ArthaVyuh — Demo Pipeline
 
 A working end-to-end data pipeline for the cybercrime command center, built to run with
-**no external infrastructure**: no PostgreSQL, no Neo4j, no Python, no Docker.
+**no external infrastructure**: no PostgreSQL, no Neo4j, and no Docker. Voice triage uses
+the Python Bhashini service and falls back to a clearly labelled demo when live credentials
+are not configured.
 
 ```
 citizen-portal ──POST /complaints──┐
                                  ├──► API ──► SQLite (node:sqlite) ──┐
-helpline text  ──POST /nlp/extract─┘                    │                 │
+helpline text  ──POST /nlp/extract─┤                    │                 │
+voice audio    ──POST /triage-voice┘                    │                 │
                                                       └──► Random Forest ├──► frontend data files
                                                             (trains in-process)   (rebuilt automatically)
 ```
@@ -82,6 +85,7 @@ Set `AUTO_SYNC=false` to turn the automatic rebuilds off and go back to running
 | `GET` | `/api/v1/atms`, `/atms/top-risk` | ATMs with live model scores |
 | `GET` | `/api/v1/money-trail/:complaintNumber` | Victim → mule → cash-out hops + predicted ATM |
 | `POST` | `/api/v1/nlp/extract` | Helpline transcript → structured incident (persists it) |
+| `POST` | `/api/v1/triage-voice` | Multipart audio + sourceLanguage → Bhashini ASR/translation and existing NLP |
 | `GET` | `/api/v1/nlp/extractions` | Past extractions |
 | `GET` | `/api/v1/ml/metrics`, `/ml/history` | Model metrics and run registry |
 | `POST` | `/api/v1/ml/retrain` | Retrain and rescore every ATM |
@@ -129,7 +133,9 @@ node test/pipeline.test.js          # end-to-end against a running API (14 check
 
 - **All data is synthetic.** Model metrics describe fit to this dataset and are not
   real-world fraud prediction performance. Every generated row is tagged accordingly.
-- **No live audio transcription** — Python is not installed. The NLP endpoint takes text.
+- **Voice credentials are external** — without BHASHINI_USER_ID, BHASHINI_API_KEY, and
+  BHASHINI_INFERENCE_KEY, voice uploads use the labelled sample Marathi demo transcript.
+  Configure these only in the backend environment; never expose them in the frontend.
 - **No real OTP/SMS** — the portal keeps its hardcoded `1234`.
 - **No file uploads** — evidence is recorded as metadata only.
 - **Login is not enforced** — the command-center login screen is deferred by decision;

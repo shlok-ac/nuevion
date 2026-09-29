@@ -73,7 +73,13 @@ router.post("/complaints", (req, res) => {
         caseId,
         "NEW_COMPLAINT",
         priority,
-        `New ${b.source === "HELPLINE_NLP" ? "helpline" : "portal"} complaint ${complaintNumber} registered for ${b.complainantName || "citizen"}`,
+        `New ${
+          b.source === "BHASHINI_VOICE"
+            ? "Bhashini voice"
+            : b.source === "HELPLINE_NLP"
+              ? "helpline"
+              : "portal"
+        } complaint ${complaintNumber} registered for ${b.complainantName || b.name || "citizen"}`,
         "OPEN",
         timestamp,
       ],

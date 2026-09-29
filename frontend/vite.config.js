@@ -12,6 +12,12 @@ export default defineConfig({
     // command center was "blank" when the citizen portal held 5173.
     port: 5173,
     strictPort: true,
+    proxy: {
+      "/api": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+      },
+    },
   },
   resolve: {
     alias: {

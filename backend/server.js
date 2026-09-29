@@ -26,6 +26,7 @@ app.use("/api/v1", require("./routes/atms"));
 app.use("/api/v1", require("./routes/alerts"));
 app.use("/api/v1", require("./routes/moneyTrail"));
 app.use("/api/v1", require("./routes/nlp"));
+app.use("/api/v1", require("./routes/triageVoice"));
 app.use("/api/v1", require("./routes/ml"));
 app.use("/api/v1", require("./routes/auth"));
 app.use("/api/v1", require("./routes/sync"));

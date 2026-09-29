@@ -14,6 +14,7 @@ import SuspectDatabase from "@/pages/SuspectDatabase";
 import Export from "@/pages/Export";
 import Analytics from "@/pages/Analytics";
 import ATMIntelligence from "@/pages/ATMIntelligence";
+import VoiceTriagePage from "@/pages/VoiceTriagePage";
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
       <Routes>
         <Route element={<CommandLayout />}>
           <Route path="/" element={<CommandDashboard />} />
+          <Route path="/bhashini" element={<VoiceTriagePage />} />
           <Route path="/case-management" element={<CaseManagement />} />
           <Route path="/cases/:caseId" element={<CaseDetails />} />
           <Route path="/atm-intelligence" element={<ATMIntelligence />} />
