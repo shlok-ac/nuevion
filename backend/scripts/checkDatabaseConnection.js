@@ -1,4 +1,6 @@
-const pool = require("./config/postgres");
+// Connectivity check for the configured PostgreSQL instance.
+// Run with: npm run check:db
+const pool = require("../config/postgres");
 
 async function testDatabase() {
     try {

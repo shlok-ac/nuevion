@@ -7,7 +7,9 @@
     "dev": "nodemon server.js",
     "import:data": "node scripts/importReferenceData.js",
     "seed:analyst": "node scripts/createAnalyst.js",
-    "test": "node --test"
+    "check:db": "node scripts/checkDatabaseConnection.js",
+    "check:neo4j": "node scripts/checkNeo4jConnection.js",
+    "test": "node --test phase2b.integration.test.js"
   },
   "keywords": [],
   "author": "",

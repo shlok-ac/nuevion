@@ -2,6 +2,29 @@
 
 This repository contains a React command dashboard, a citizen complaint portal, an Express API, PostgreSQL/Neo4j persistence, notebook-based NLP/ATM analysis, and the datasets used by the prototypes. The two existing frontends remain separate applications and use the same backend API; this integration does not replace either UI.
 
+## Repository layout
+
+```text
+nuevion/
+├── backend/          Express API (:5000) — routes, controllers, services, DB config
+│   └── scripts/      Seeding and reference-data import utilities
+├── citizen-portal/   Citizen-facing Vite/React app (:5174)
+├── frontend/         Command-center Vite/React app (:5173)
+├── ml/               Python NLP + ATM-risk services, notebooks, unit tests
+├── data/             Reference CSV datasets used by the importer and ML services
+├── database/
+│   ├── postgresql/   schema.sql + migrations/
+│   └── neo4j/        constraints, import script, money-trail queries
+└── docs/             Subsystem documentation
+```
+
+### Subsystem documentation
+
+| Document | Covers |
+|---|---|
+| [`docs/atm-risk-and-money-trail.md`](docs/atm-risk-and-money-trail.md) | Random Forest ATM risk classifier, generated mule hops, Neo4j graph model, cash-out mapping |
+| [`docs/nlp-triage-engine.md`](docs/nlp-triage-engine.md) | Audio ingestion, BHASHINI transcription, entity extraction, scam taxonomy |
+
 ## Runtime flow and current boundaries
 
 ```text
@@ -21,7 +44,7 @@ The citizen portal's optional prototype-audio flow uses the existing `POST /api/
 
 `ml/ArthVyuh.ipynb` trains a `RandomForestClassifier(n_estimators=100, random_state=42)` for ATM `risk_level` from the five existing ATM features and uses `predict_proba`. The callable implementation in `ml/atm_risk_service.py` uses those same features, labels, model settings, 80/20 stratified split, random seed, and `data/atms.csv` training rows. For a new complaint it classifies only same-city ATM catalog candidates; this is **ATM risk classification, not a complaint-to-ATM match or cash-out probability**. The returned class probability is explicitly marked as in-sample, held-out, or unseen-catalog and is not calibrated. Existing catalog candidates may have appeared in the notebook's training partition.
 
-The notebook's `atm_cashout_mapping new.csv` and `mule_hops.csv` are generated prototype data: the notebook rotates top-ranked ATMs within complaint city and fabricates hop account identifiers/amounts/timings. They are not supervised ground truth and are not used by the live candidate/risk flow. Wherever shown, they are labeled **"Imported/generated reference data — not verified cash-out events."** No complaint-triggered cash-out alerts are created.
+The notebook's `atm_cashout_mapping.csv` and `mule_hops.csv` are generated prototype data: the notebook rotates top-ranked ATMs within complaint city and fabricates hop account identifiers/amounts/timings. They are not supervised ground truth and are not used by the live candidate/risk flow. Wherever shown, they are labeled **"Imported/generated reference data — not verified cash-out events."** No complaint-triggered cash-out alerts are created.
 
 The complaint API persists NLP output with extraction provenance and `verified: false`. Same-city candidate inference is persisted to existing `atms.predicted_risk_level`, `prediction_confidence`, `prediction_details`, and `prediction_updated_at` fields; original prediction CSV details remain in JSONB alongside `live_atm_risk_inference`. Existing `risk_score` / `risk_level` reference fields are not overwritten. The candidate list is derived from the exact normalized complaint-location-to-ATM-city match and returned by dashboard/case APIs. Candidate associations are not written as cash-out relationships in Neo4j.
 
@@ -45,6 +68,24 @@ Frontend API origins can be overridden with:
 - `citizen-portal/.env`: `VITE_API_URL=http://localhost:5000`
 
 The sample frontend `.env.example` files are safe templates; never add credentials there.
+
+### Security: known exposed BHASHINI credentials
+
+An earlier revision of this repository committed three live BHASHINI/ULCA credentials in
+`backend/nlp_engine.py` (hardcoded as `os.getenv` fallbacks). That file has been deleted and
+the credentials are no longer present in the working tree, but **they remain in git history**
+and must be treated as compromised.
+
+**Rotate them before any deployment or evaluation:**
+
+1. Sign in to the ULCA/BHASHINI developer portal and revoke the existing `userID` and
+   `ulcaApiKey`.
+2. Issue a new key pair and store it **only** in your local `backend/.env`.
+3. Never commit real credentials, and never paste them into notebooks or source files.
+
+The current implementation (`ml/bhashini_service.py`) reads these values from the
+environment and raises an explicit error when they are absent — it has no hardcoded
+fallback.
 
 For prototype audio analysis, set `BHASHINI_USER_ID` and `BHASHINI_API_KEY` in the backend `.env`; set `BHASHINI_INFERENCE_KEY` only if the BHASHINI configuration response does not provide one. These credentials are used only by the backend. Select a spoken language in the citizen portal to avoid the optional Whisper-based automatic language detector.
 
@@ -128,15 +169,21 @@ The command frontend uses `http://localhost:5173`; the citizen portal uses `http
 
 ```powershell
 cd backend
-npm test
+npm test                 # integration suite (requires a running PostgreSQL + Neo4j)
+npm run check:db         # verify PostgreSQL connectivity only
+npm run check:neo4j      # verify Neo4j connectivity only
 node --check server.js
 cd ..\frontend
 npm run build
 cd ..\citizen-portal
 npm run build
 cd ..\ml
-python -m unittest test_nlp_service.py
+python -m unittest test_nlp_service.py test_atm_risk_service.py
 ```
+
+`npm test` runs the integration suite only. The standalone connectivity checks are separate
+scripts (`backend/scripts/checkDatabaseConnection.js`, `backend/scripts/checkNeo4jConnection.js`)
+because Node's test runner auto-discovers files matching `test-*.js`.
 
 - `/api/health` reports `degraded` if PostgreSQL or Neo4j is unreachable or not configured. The backend can still start without Neo4j; graph operations report an unavailable status.
 - Login requires a PostgreSQL user whose password is a bcrypt hash. The sample CSV's `hashed_password_*` values are placeholders, not usable credentials.

@@ -187,7 +187,7 @@ const importReferenceData = async () => {
     const cases = readCsv("cases.csv");
     const alerts = readCsv("alerts.csv");
     const predictions = readCsv("atm_predictions.csv");
-    const cashoutMappings = readCsv("atm_cashout_mapping new.csv");
+    const cashoutMappings = readCsv("atm_cashout_mapping.csv");
     const client = await pool.connect();
     let importedMappings = 0;
 

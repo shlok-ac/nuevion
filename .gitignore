@@ -1,8 +1,106 @@
+# ============================================
+# Nuevion — repository-wide ignore rules
+# ============================================
+
+# ---------- Node ----------
 node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+*.tsbuildinfo
+
+# ---------- Build output ----------
+dist/
+build/
+.output/
+.wrangler/
+.vite/
+*.local
+
+# ---------- Secrets / environment ----------
+# Never commit real credentials. Templates (*.example) stay tracked.
 .env
 .env.*
 !.env.example
-*.log
-.DS_Store
+*.pem
+*.key
+!.envrc.example
+secrets/
 
-# add global .gitignore files here
+# ---------- Databases ----------
+# Local SQLite artifacts and dumps
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+backend/data/
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.coverage
+coverage.xml
+htmlcov/
+*.cover
+.hypothesis/
+
+# Trained model artifacts
+model.json
+ml/models/
+
+# ---------- Logs ----------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log.[0-9]*
+
+# ---------- OS / editor ----------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+ehthumbs.db
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.sw?
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.code-workspace
+
+# ---------- Test / coverage output ----------
+coverage/
+.nyc_output/
+junit.xml
+
+# ---------- Temporary files ----------
+*.tmp
+*.temp
+*.bak
+*.orig
+Thumbs.db

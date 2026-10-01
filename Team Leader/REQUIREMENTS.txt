@@ -1,7 +1,0 @@
-pandas
-numpy
-geopy
-folium
-openai-whisper
-networkx
-scikit-learn
