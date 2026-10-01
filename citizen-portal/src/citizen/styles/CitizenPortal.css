@@ -113,7 +113,7 @@
   text-decoration: none;
 }
 
-.nirikshan-seal {
+.arthavyuh-seal {
   width: 70px;
   height: 70px;
   border-radius: 50%;
@@ -124,7 +124,7 @@
   background: white;
 }
 
-.nirikshan-seal::before {
+.arthavyuh-seal::before {
   content: "";
   position: absolute;
   inset: 4px;
@@ -357,7 +357,7 @@
     font-size: 12px;
   }
 
-  .nirikshan-seal {
+  .arthavyuh-seal {
     width: 58px;
     height: 58px;
   }
@@ -938,10 +938,10 @@
 }
 
 /* =========================================================
-   NIRIKSHAN AI - INTERACTION & ANIMATIONS
+   ARTHAVYū AI - INTERACTION & ANIMATIONS
    ========================================================= */
 
-@keyframes nirikshanFadeUp {
+@keyframes arthavyuhFadeUp {
   from {
     opacity: 0;
     transform: translateY(18px);
@@ -953,7 +953,7 @@
   }
 }
 
-@keyframes nirikshanFadeIn {
+@keyframes arthavyuhFadeIn {
   from {
     opacity: 0;
   }
@@ -963,7 +963,7 @@
   }
 }
 
-@keyframes nirikshanScaleIn {
+@keyframes arthavyuhScaleIn {
   from {
     opacity: 0;
     transform: scale(0.96);
@@ -975,7 +975,7 @@
   }
 }
 
-@keyframes nirikshanFloat {
+@keyframes arthavyuhFloat {
   0%,
   100% {
     transform: translateY(0);
@@ -986,7 +986,7 @@
   }
 }
 
-@keyframes nirikshanPulse {
+@keyframes arthavyuhPulse {
   0%,
   100% {
     box-shadow: 0 0 0 0 rgba(19, 136, 8, 0.12);
@@ -1000,7 +1000,7 @@
 /* Main page entrance */
 
 .citizen-main {
-  animation: nirikshanFadeIn 0.45s ease both;
+  animation: arthavyuhFadeIn 0.45s ease both;
 }
 
 /* Cards */
@@ -1008,17 +1008,17 @@
 .report-card,
 .confirmation-card,
 .track-card {
-  animation: nirikshanScaleIn 0.45s ease both;
+  animation: arthavyuhScaleIn 0.45s ease both;
 }
 
 .faq-list {
-  animation: nirikshanFadeUp 0.5s ease both;
+  animation: arthavyuhFadeUp 0.5s ease both;
 }
 
 /* FAQ individual items */
 
 .faq-item {
-  animation: nirikshanFadeUp 0.45s ease both;
+  animation: arthavyuhFadeUp 0.45s ease both;
 }
 
 .faq-item:nth-child(2) {
@@ -1052,19 +1052,19 @@
 /* FAQ answer */
 
 .faq-answer {
-  animation: nirikshanFadeUp 0.25s ease both;
+  animation: arthavyuhFadeUp 0.25s ease both;
 }
 
 /* Track result */
 
 .track-result {
-  animation: nirikshanFadeUp 0.45s ease both;
+  animation: arthavyuhFadeUp 0.45s ease both;
 }
 
 /* Track timeline */
 
 .timeline-item {
-  animation: nirikshanFadeUp 0.4s ease both;
+  animation: arthavyuhFadeUp 0.4s ease both;
 }
 
 .timeline-item:nth-child(2) {
@@ -1082,7 +1082,7 @@
 /* Status indicator */
 
 .track-status {
-  animation: nirikshanPulse 2.2s infinite;
+  animation: arthavyuhPulse 2.2s infinite;
 }
 
 /* Buttons */
@@ -1163,12 +1163,12 @@
 
 /* Seal */
 
-.nirikshan-seal {
-  animation: nirikshanFloat 4s ease-in-out infinite;
+.arthavyuh-seal {
+  animation: arthavyuhFloat 4s ease-in-out infinite;
   transition: transform 0.3s ease;
 }
 
-.nirikshan-seal:hover {
+.arthavyuh-seal:hover {
   animation-play-state: paused;
   transform: scale(1.06) rotate(2deg);
 }
@@ -1203,7 +1203,7 @@
   position: absolute;
   border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 50%;
-  animation: nirikshanFloat 5s ease-in-out infinite;
+  animation: arthavyuhFloat 5s ease-in-out infinite;
 }
 
 .cyber-visual::before {
@@ -1231,7 +1231,7 @@
   color: #ffffff;
   font-size: 42px;
   backdrop-filter: blur(8px);
-  animation: nirikshanPulse 2.5s infinite;
+  animation: arthavyuhPulse 2.5s infinite;
 }
 
 .cyber-visual-label {
@@ -1522,7 +1522,7 @@
   }
 }
 
-/* My Complaints page header — match ArthaVyuh page heading style */
+/* My Complaints page header — match ArthaVyūh page heading style */
 .complaints-page .track-header {
   margin-bottom: 32px;
 }
@@ -1563,7 +1563,7 @@
   }
 }
 
-/* Align My Complaints page with the main ArthaVyuh content container */
+/* Align My Complaints page with the main ArthaVyūh content container */
 .complaints-page {
   width: min(1180px, calc(100% - 40px));
   margin: 0 auto;

@@ -1,21 +1,79 @@
-# Nuevion — SIH 2026 cyber-fraud application
+# ArthaVyūh — AI-Powered Proactive Cybercrime Interdiction & ATM Cash-Out Prediction
 
-This repository contains a React command dashboard, a citizen complaint portal, an Express API, PostgreSQL/Neo4j persistence, notebook-based NLP/ATM analysis, and the datasets used by the prototypes. The two existing frontends remain separate applications and use the same backend API; this integration does not replace either UI.
+> **Smart India Hackathon 2026** · Problem Statement `26184` · Theme: *Blockchain & Cybersecurity*  
+> Category: *Software* · Team ID: `137425`
+
+ArthaVyūh moves police from the complaint desk to the cash-out point. One complaint drives
+the whole chain: trace the fraud money to its exit account, predict the ATM where cash is
+likely to be withdrawn, request an officer-approved silent hold, and dispatch police.
+
+This repository contains a React command dashboard, a citizen complaint portal, an Express API, PostgreSQL/Neo4j persistence, notebook-based NLP/ATM analysis, and the datasets used by the prototypes. The two frontends are separate applications that share the same backend API; this integration does not replace either UI.
+
+> **Prototype scope:** built on synthetic data. Government 1930/NCRP, banking, and telecom
+> data is private and was not used. All metrics are indicative, not production results.
+
+## System architecture
+
+
+![ArthaVyūh system architecture](assets/system-architecture.png)
+
+The platform is organised as six processing stages between two input channels and a single
+command centre:
+
+```text
+  INPUT                PROCESSING & INTELLIGENCE                    OUTPUT
+┌──────────────┐
+│ Citizen      │
+│ Portal :5174 │──┐
+└──────────────┘  │   ┌──────────────────────────────────────────┐
+                  ├──▶│ 2  Data Processing & Fusion              │
+┌──────────────┐  │   │  cleaning · features · entity · geo      │
+│ BHASHINI     │──┘   ├──────────────────────────────────────────┤
+│ voice intake │      │ 3  AI/ML Fraud Risk Engine               │   ┌──────────────────┐
+└──────────────┘      │    Random Forest risk scoring            │──▶│ Officer Command  │
+                      ├──────────────────────────────────────────┤   │ Centre  :5173    │
+                      │ 4  Graph Intelligence (Neo4j)            │   │ cases · trail    │
+                      │    L1→L2→L3 hops · exit account          │   │ heatmap · freeze │
+                      ├──────────────────────────────────────────┤   │ analytics        │
+                      │ 5  GIS Intelligence                      │   └──────────────────┘
+                      │    Leaflet · hotspots · ATM risk map     │
+                      ├──────────────────────────────────────────┤    ┌──────────────────┐
+                      │ 6  Decision & Action Engine              │    │ PostgreSQL       │
+                      │    unified risk · case prioritisation    │──▶│ Neo4j            │
+                      └──────────────┬───────────────────────────┘    └──────────────────┘
+                                     │ 7  Backend API layer (Express, :5000)
+                                     ▼
+                        8  Results: alerts & case data → dashboard
+```
+
+Stage responsibilities:
+
+| # | Stage | Responsibility |
+|---|---|---|
+| 1 | Input | Citizen portal (report, track, acknowledgement) and BHASHINI voice intake |
+| 2 | Data processing & fusion | Cleaning, validation, feature extraction, entity resolution, geospatial processing |
+| 3 | AI/ML fraud risk engine | Random Forest ATM risk scoring, pattern and suspicious-transaction detection |
+| 4 | Graph intelligence | Money-trail analysis, mule-account detection, transaction network graph |
+| 5 | GIS intelligence | Heatmaps, fraud hotspots, geospatial pattern analysis, ATM risk mapping |
+| 6 | Decision & action engine | Unified risk score, case prioritisation, alert generation |
+| 7 | Backend API | Express REST layer, request processing, model inference, data storage |
+| 8 | Officer command centre | Dashboards, suspect database, money trail, freeze simulation, analytics |
 
 ## Repository layout
 
 ```text
-nuevion/
-├── backend/          Express API (:5000) — routes, controllers, services, DB config
-│   └── scripts/      Seeding and reference-data import utilities
-├── citizen-portal/   Citizen-facing Vite/React app (:5174)
-├── frontend/         Command-center Vite/React app (:5173)
-├── ml/               Python NLP + ATM-risk services, notebooks, unit tests
-├── data/             Reference CSV datasets used by the importer and ML services
+arthavyuh/
+├── assets/            Architecture diagram (draw.io source + PNG preview)
+├── backend/           Express API (:5000) — routes, controllers, services, DB config
+│   └── scripts/       Seeding, reference-data import, connectivity checks
+├── citizen-portal/    Citizen-facing Vite/React app (:5174)
+├── frontend/          Command-center Vite/React app (:5173)
+├── ml/                Python NLP + ATM-risk services, notebooks, unit tests
+├── data/              Reference CSV datasets used by the importer and ML services
 ├── database/
-│   ├── postgresql/   schema.sql + migrations/
-│   └── neo4j/        constraints, import script, money-trail queries
-└── docs/             Subsystem documentation
+│   ├── postgresql/    schema.sql + migrations/
+│   └── neo4j/         constraints, import script, money-trail queries
+└── docs/              Subsystem documentation
 ```
 
 ### Subsystem documentation

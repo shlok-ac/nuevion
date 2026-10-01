@@ -31,7 +31,7 @@ function TrackPlaceholder() {
       let localComplaint = {};
       try {
         const storedComplaint = JSON.parse(
-          localStorage.getItem("nirikshanLatestComplaint") || "null"
+          localStorage.getItem("arthavyuhLatestComplaint") || "null"
         );
         if (
           storedComplaint?.complaintNumber?.toUpperCase() === enteredId &&
@@ -293,7 +293,7 @@ function MyComplaints() {
 
   React.useEffect(() => {
     try {
-      const saved = localStorage.getItem("nirikshanLatestComplaint");
+      const saved = localStorage.getItem("arthavyuhLatestComplaint");
       if (saved) setComplaint(JSON.parse(saved));
     } catch (error) {
       console.error("Unable to load complaint:", error);
@@ -780,7 +780,7 @@ function LoginPlaceholder() {
               marginBottom: "24px",
             }}
           >
-            You are logged in to the ArthaVyuh Citizen Portal.
+            You are logged in to the ArthaVyūh Citizen Portal.
           </p>
 
           <div

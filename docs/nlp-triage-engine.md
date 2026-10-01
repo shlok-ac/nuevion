@@ -1,6 +1,6 @@
 # NLP Audio Ingestion & Cybercrime Triage Engine
 
-> Part of the Nuevion prototype. See the [root README](../README.md) for setup and API reference.
+> Part of the ArthaVyū prototype. See the [root README](../README.md) for setup and API reference.
 
 This subsystem is the automated intake layer for citizen complaints. It converts an audio
 complaint into structured, queryable fields — amount, payment channel, mule identifiers,

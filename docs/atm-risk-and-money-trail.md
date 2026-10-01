@@ -1,6 +1,6 @@
 # ATM Risk Prediction & Money Trail Intelligence
 
-> Part of the Nuevion prototype. See the [root README](../README.md) for setup and API reference.
+> Part of the ArthaVyū prototype. See the [root README](../README.md) for setup and API reference.
 
 This subsystem identifies potentially high-risk cash-out locations after a cybercrime
 complaint. It combines a supervised ATM risk classifier with a Neo4j graph of the

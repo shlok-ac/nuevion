@@ -7,7 +7,7 @@ export default function Confirmation() {
   const { id } = useParams();
 
   const storedComplaint = localStorage.getItem(
-    "nirikshanLatestComplaint"
+    "arthavyuhLatestComplaint"
   );
 
   const complaint = storedComplaint
@@ -79,7 +79,7 @@ const downloadPDF = async () => {
     doc.setTextColor(...navy);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
-    doc.text("ArthaVyuh", margin + 24, 17);
+    doc.text("ArthaVyūh", margin + 24, 17);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
@@ -213,7 +213,7 @@ const downloadPDF = async () => {
     doc.setTextColor(...muted);
 
     doc.text(
-      "ArthaVyuh | National Cybercrime Reporting Portal | SIH Prototype",
+      "ArthaVyūh | National Cybercrime Reporting Portal | SIH Prototype",
       margin,
       pageHeight - 10
     );
@@ -652,7 +652,7 @@ const downloadPDF = async () => {
 
       doc.text(
         doc.splitTextToSize(
-          "This is a computer-generated acknowledgement issued by the ArthaVyuh SIH Prototype. Please retain this document for your records.",
+          "This is a computer-generated acknowledgement issued by the ArthaVyūh SIH Prototype. Please retain this document for your records.",
           pageWidth - margin * 2 - 14
         ),
         margin + 7,

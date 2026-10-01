@@ -278,8 +278,8 @@ export default function ReportFraud() {
     );
  };
 
-const drawNirikshanSeal = (doc, x, y) => {
-  // Original Nirikshan AI circular seal.
+const drawArthaVyuhSeal = (doc, x, y) => {
+  // Original ArthaVyūh circular seal.
   // This is intentionally not an official government emblem.
 
   doc.setFillColor(255, 153, 51);
@@ -351,7 +351,7 @@ const generatePDF = (complaintNumber, complaint) => {
   doc.setFillColor(10, 49, 97);
   doc.rect(0, 4, pageWidth, 48, "F");
 
-  drawNirikshanSeal(
+  drawArthaVyuhSeal(
     doc,
     margin + 15,
     28
@@ -362,7 +362,7 @@ const generatePDF = (complaintNumber, complaint) => {
   doc.setFontSize(20);
 
   doc.text(
-    "NIRIKSHAN AI",
+    "ARTHAVYŪH",
     margin + 37,
     25
   );
@@ -425,7 +425,7 @@ const generatePDF = (complaintNumber, complaint) => {
   doc.setFontSize(9);
 
   doc.text(
-    "This document confirms that the complaint details below have been submitted through Nirikshan AI.",
+    "This document confirms that the complaint details below have been submitted through ArthaVyūh.",
     margin,
     y
   );
@@ -826,7 +826,7 @@ const generatePDF = (complaintNumber, complaint) => {
   doc.setFontSize(7);
 
   doc.text(
-    "Nirikshan AI · SIH Prototype",
+    "ArthaVyūh · SIH Prototype",
     margin,
     footerY
   );
@@ -890,7 +890,7 @@ const handleSubmit = async (event) => {
       graph: result.graph,
     };
 
-    localStorage.setItem("nirikshanLatestComplaint", JSON.stringify(complaint));
+    localStorage.setItem("arthavyuhLatestComplaint", JSON.stringify(complaint));
     navigate(`/complaint/${complaintNumber}/confirmation`);
   } catch (error) {
     setSubmitError(error.message || "Complaint submission failed. Please try again.");

@@ -1,5 +1,5 @@
 // ============================================================
-// NIRIKSHAN AI - NEO4J QUERIES
+// ARTHAVYū AI - NEO4J QUERIES
 // Member 3 - Money Trail & ATM Risk Graph
 // ============================================================
 

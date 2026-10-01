@@ -6,7 +6,7 @@ const path = require("node:path");
 const multer = require("multer");
 const jwt = require("jsonwebtoken");
 const upload = multer({
-  dest: path.join(os.tmpdir(), "nuevion-audio-upload"),
+  dest: path.join(os.tmpdir(), "arthavyuh-audio-upload"),
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, callback) => {
     if (file.mimetype.startsWith("audio/") || file.mimetype === "application/octet-stream") {
@@ -120,7 +120,7 @@ router.post("/triage-voice", parseVoiceAudio, async (req, res) => {
       ...analysis
     }, process.env.JWT_SECRET, {
       expiresIn: "15m",
-      issuer: "nuevion-backend",
+      issuer: "arthavyuh-backend",
       audience: "bhashini-audio-complaint"
     });
 

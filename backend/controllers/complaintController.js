@@ -151,7 +151,7 @@ const createComplaint = async (req, res) => {
         }
         try {
             const decoded = jwt.verify(audioAnalysisToken, process.env.JWT_SECRET, {
-                issuer: "nuevion-backend",
+                issuer: "arthavyuh-backend",
                 audience: "bhashini-audio-complaint"
             });
             if (
