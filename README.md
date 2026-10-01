@@ -14,8 +14,15 @@ This repository contains a React command dashboard, a citizen complaint portal, 
 
 ## System architecture
 
+<!-- Replace this block with the rendered diagram image once exported.
+     Open assets/system-architecture.drawio in the draw.io extension and
+     export to PNG, then place it at assets/system-architecture.png -->
 
+![System Architecture](assets/system-architecture.drawio.svg)
+
+<!--
 ![ArthaVyūh system architecture](assets/system-architecture.png)
+-->
 
 The platform is organised as six processing stages between two input channels and a single
 command centre:
@@ -63,7 +70,7 @@ Stage responsibilities:
 
 ```text
 arthavyuh/
-├── assets/            Architecture diagram (draw.io source + PNG preview)
+├── assets/            Architecture diagram source (draw.io XML)
 ├── backend/           Express API (:5000) — routes, controllers, services, DB config
 │   └── scripts/       Seeding, reference-data import, connectivity checks
 ├── citizen-portal/    Citizen-facing Vite/React app (:5174)
