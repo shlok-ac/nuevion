@@ -12,6 +12,17 @@ This repository contains a React command dashboard, a citizen complaint portal, 
 > **Prototype scope:** built on synthetic data. Government 1930/NCRP, banking, and telecom
 > data is private and was not used. All metrics are indicative, not production results.
 
+## Watch the prototype
+
+[![Watch the ArthaVyūh working prototype](assets/atm-withdrawal-prediction-report.png)](https://www.youtube.com/watch?v=kaSQRhFFf00)
+
+**▶ [SIH 2026 — PS No. 26184 | Team Nuevion — ArthaVyūh Working Prototype](https://www.youtube.com/watch?v=kaSQRhFFf00)**
+
+A screen-by-screen walkthrough of the command centre: complaint intake, ATM withdrawal
+prediction, money trail, and the §106 freeze notice. Click the thumbnail to play on YouTube.
+
+Presentation deck: [`SIH_2026_PPT_TEAM_NUEVION.pdf`](SIH_2026_PPT_TEAM_NUEVION.pdf)
+
 ## System architecture
 
 <!-- Replace this block with the rendered diagram image once exported.
@@ -66,27 +77,41 @@ Stage responsibilities:
 | 7 | Backend API | Express REST layer, request processing, model inference, data storage |
 | 8 | Officer command centre | Dashboards, suspect database, money trail, freeze simulation, analytics |
 
+## Screenshots
+
+![Command dashboard overview](assets/command-dashboard-overview.png)
+
+*The officer command centre: amount at risk, 24-hour priority alerts, accounts frozen, and the
+top active cases ranked by amount. A live intake feed on the right shows complaints arriving
+from the citizen portal and from BHASHINI voice triage as they land.*
+
+Further screens — ATM withdrawal prediction, money trail, §106 freeze notice, suspect and mule
+registries, GIS heatmap and analytics — are in [`assets/`](assets/) and are walked through in
+[`WORKFLOW.md`](WORKFLOW.md).
+
 ## Repository layout
 
 ```text
 arthavyuh/
-├── assets/            Architecture diagram source (draw.io XML)
-├── backend/           Express API (:5000) — routes, controllers, services, DB config
-│   └── scripts/       Seeding, reference-data import, connectivity checks
-├── citizen-portal/    Citizen-facing Vite/React app (:5174)
-├── frontend/          Command-center Vite/React app (:5173)
-├── ml/                Python NLP + ATM-risk services, notebooks, unit tests
-├── data/              Reference CSV datasets used by the importer and ML services
+├── WORKFLOW.md          End-to-end complaint-to-action walkthrough
+├── assets/              Architecture diagram and UI screenshots
+├── backend/             Express API (:5000) — routes, controllers, services, DB config
+│   └── scripts/         Seeding, reference-data import, connectivity checks
+├── citizen-portal/      Citizen-facing Vite/React app (:5174)
+├── frontend/            Command-center Vite/React app (:5173)
+├── ml/                  Python NLP + ATM-risk services, notebooks, unit tests
+├── data/                Reference CSV datasets used by the importer and ML services
 ├── database/
-│   ├── postgresql/    schema.sql + migrations/
-│   └── neo4j/         constraints, import script, money-trail queries
-└── docs/              Subsystem documentation
+│   ├── postgresql/      schema.sql + migrations/
+│   └── neo4j/           constraints, import script, money-trail queries
+└── docs/                Subsystem documentation
 ```
 
 ### Subsystem documentation
 
 | Document | Covers |
 |---|---|
+| [`WORKFLOW.md`](WORKFLOW.md) | **End-to-end walkthrough.** Follows one complaint from citizen intake (portal form or BHASHINI voice) through the single atomic PostgreSQL write, then the three enrichment branches that run in parallel — NLP triage, Random Forest ATM cash-out risk, and the Neo4j money-trail graph — into the officer's decision loop across all 11 command-centre screens. Documents the API contract, the failure semantics that keep a complaint alive when a branch fails, the exact files behind each stage, and an explicit list of prototype boundaries |
 | [`docs/atm-risk-and-money-trail.md`](docs/atm-risk-and-money-trail.md) | Random Forest ATM risk classifier, generated mule hops, Neo4j graph model, cash-out mapping |
 | [`docs/nlp-triage-engine.md`](docs/nlp-triage-engine.md) | Audio ingestion, BHASHINI transcription, entity extraction, scam taxonomy |
 
