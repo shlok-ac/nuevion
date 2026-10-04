@@ -142,6 +142,14 @@ export default function VoiceTriagePage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
+<div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900">
+  <div className="font-semibold">BHASHINI feature not deployed yet</div>
+  <div className="mt-1 text-sm">
+    Voice triage is part of the full integration, but its backend service is not included in this public demo deployment yet.
+    The rest of the command centre works normally.
+  </div>
+</div>
+
       <div className="border-b pb-4">
         <h1 className="text-2xl font-bold text-gray-900">Bhashini</h1>
         <p className="text-sm text-gray-500">
