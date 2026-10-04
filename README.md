@@ -14,7 +14,6 @@ This repository contains a React command dashboard, a citizen complaint portal, 
 
 ## Watch the prototype
 
-[![Watch the ArthaVyūh working prototype](assets/atm-withdrawal-prediction-report.png)](https://www.youtube.com/watch?v=kaSQRhFFf00)
 
 **▶ [SIH 2026 — PS No. 26184 | Team Nuevion — ArthaVyūh Working Prototype](https://www.youtube.com/watch?v=kaSQRhFFf00)**
 
